@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Gym Rush: Leaderboard Edition</title>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+    <style>
+        body { margin: 0; background: #000; overflow: hidden; font-family: 'Courier New', Courier, monospace; }
+        #game-container { width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; }
+        
+        .hud { position: absolute; top: 15px; width: 100%; display: flex; justify-content: space-around; color: white; z-index: 10; font-weight: bold; pointer-events: none; }
+        .time-critical { color: #ff0000; font-size: 1.8rem !important; animation: shake 0.1s infinite; }
+        @keyframes shake { 0% { transform: translate(1px, 1px); } 50% { transform: translate(-1px, -1px); } 100% { transform: translate(1px, -1px); } }
+
+        .overlay { position: absolute; background: rgba(0, 0, 0, 0.95); width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 20; text-align: center; color: white; padding: 25px; box-sizing: border-box; }
+        .hidden { display: none !important; }
+        
+        h1 { color: #ff3f34; text-shadow: 0 0 10px #ff3f34; margin: 10px 0; }
+
+        button { pointer-events: auto; background: #ff3f34; border: none; padding: 15px 45px; font-weight: bold; border-radius: 5px; cursor: pointer; margin-top: 20px; font-size: 1.2rem; color: white; border-bottom: 4px solid #b32d26; width: 80%; }
+        button:active { border-bottom: 0; transform: translateY(4px); }
+
+        #action-btn { position: absolute; bottom: 40px; right: 30px; width: 100px; height: 100px; background: rgba(255, 63, 52, 0.2); border: 4px solid #ff3f34; border-radius: 50%; color: #ff3f34; display: flex; justify-content: center; align-items: center; font-weight: bold; pointer-events: auto; visibility: hidden; z-index: 15; backdrop-filter: blur(4px); }
+
+        /* Estilos de la Tabla de Clasificación */
+        .leaderboard-container { width: 100%; max-width: 300px; margin-top: 20px; border-top: 2px solid #333; padding-top: 15px; }
+        .leaderboard-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .leaderboard-table th { color: #888; font-size: 0.8rem; text-transform: uppercase; padding-bottom: 8px; }
+        .leaderboard-table td { padding: 5px; font-size: 1.1rem; }
+        .rank-col { color: #ff3f34; width: 40px; text-align: left; }
+        .score-col { color: #00ff88; text-align: right; font-weight: bold; }
+        .current-game-score { font-size: 2.5rem; color: #ff3f34; margin: 10px 0; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <div class="hud">
+            <div id="timer-display" style="font-size: 1.3rem;">10.0s</div>
+            <div id="score-display" style="font-size: 1.3rem;">PESAS: 0</div>
+        </div>
+
+        <div id="start-screen" class="overlay">
+            <h1>GYM RUSH</h1>
+            <p style="color:#aaa; font-size: 0.8rem;">HARDCORE SURVIVAL</p>
+            <div style="text-align: left; background: rgba(255,63,52,0.1); padding: 15px; border-left: 4px solid #ff3f34; margin: 15px 0;">
+                • Tiempo: <b>10s iniciales</b><br>
+                • Bono: <b>+3s</b> por pesa<br>
+                • Enemigos: <b>Más rápidos</b> cada nivel<br>
+                • PC: <b>Flechas + E</b> | Móvil: <b>Tap + Botón</b>
+            </div>
+            <button onclick="startGame()">INICIAR RETO</button>
+        </div>
+
+        <div id="action-btn">ACCION</div>
+
+        <div id="end-screen" class="overlay hidden">
+            <h1>TIEMPO AGOTADO</h1>
+            <p>PUNTUACIÓN ACTUAL</p>
+            <div class="current-game-score" id="final-score">0</div>
+            
+            <div class="leaderboard-container">
+                <table class="leaderboard-table">
+                    <thead>
+                        <tr>
+                            <th class="rank-col">POS</th>
+                            <th style="text-align: left;">RÉCORDS ANTERIORES</th>
+                            <th class="score-col">PESAS</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboard-body">
+                        </tbody>
+                </table>
+            </div>
+
+            <button onclick="location.reload()">REINTENTAR</button>
+        </div>
+    </div>
+
+    <script>
+        const config = {
+            type: Phaser.AUTO,
+            parent: 'game-container',
+            width: 450,
+            height: 800,
+            physics: { default: 'arcade', arcade: { debug: false } },
+            scene: { preload, create, update }
+        };
+
+        let game = new Phaser.Game(config);
+        let player, activeWeight, machines, people, rackZone;
+        let isHolding = null;
+        let isPlaying = false;
+        let timeLeft = 10.0;
+        let score = 0;
+        let startTime, cursors, keyE, targetPoint;
+        let rackCount = 0;
+
+        function preload() {
+            const g = this.make.graphics({ x: 0, y: 0, add: false });
+            g.fillStyle(0x00d2ff).fillCircle(15, 15, 15).lineStyle(2, 0xffffff).strokeCircle(15, 15, 15);
+            g.generateTexture('player', 32, 32);
+            g.clear().fillStyle(0xffffff).fillRect(0, 10, 30, 10).fillStyle(0x555555).fillRect(0, 0, 8, 30).fillRect(22, 0, 8, 30);
+            g.generateTexture('weight', 32, 32);
+            g.clear().fillStyle(0xff3f34).fillCircle(15, 15, 15).fillStyle(0x000000).fillCircle(10, 10, 2).fillCircle(20, 10, 2);
+            g.generateTexture('person', 32, 32);
+            g.clear().fillStyle(0x1a1a1a).fillRoundedRect(0, 0, 80, 50, 5).lineStyle(2, 0x333333).strokeRect(0, 0, 80, 50);
+            g.generateTexture('machine', 82, 52);
+        }
+
+        function create() {
+            this.add.rectangle(225, 400, 450, 800, 0x0a0a0a);
+            this.add.grid(225, 400, 450, 800, 50, 50, 0x222222, 0.1);
+
+            // Rack
+            this.add.rectangle(225, 60, 410, 90, 0x1a1a1a);
+            rackZone = this.add.rectangle(225, 60, 390, 70).setStrokeStyle(2, 0xff3f34);
+            
+            machines = this.physics.add.staticGroup();
+            [[80, 250], [370, 250], [225, 450], [80, 650], [370, 650]].forEach(p => machines.create(p[0], p[1], 'machine'));
+
+            player = this.physics.add.sprite(225, 750, 'player').setCollideWorldBounds(true).setCircle(14);
+            activeWeight = this.physics.add.sprite(0, 0, 'weight');
+            spawnWeight();
+
+            people = this.physics.add.group();
+            for(let i=0; i<4; i++) {
+                let p = people.create(Phaser.Math.Between(50, 400), Phaser.Math.Between(150, 500), 'person');
+                p.setCollideWorldBounds(true).setBounce(1).setCircle(14);
+            }
+
+            this.physics.add.collider(player, machines);
+            this.physics.add.collider(people, machines);
+            this.physics.add.collider(player, people, () => {
+                if (isHolding) {
+                    isHolding = null;
+                    timeLeft = Math.max(0, timeLeft - 1);
+                    this.cameras.main.shake(200, 0.02);
+                    showFloat("-1s", player.x, player.y, "#ff3f34");
+                }
+            });
+
+            cursors = this.input.keyboard.createCursorKeys();
+            keyE = this.input.keyboard.addKey('E');
+            this.input.on('pointerdown', (p) => { if(!this.sys.game.device.os.desktop) targetPoint = {x: p.x, y: p.y}; });
+
+            const interact = () => {
+                if (!isPlaying) return;
+                if (isHolding) {
+                    if (Phaser.Geom.Rectangle.Contains(rackZone.getBounds(), player.x, player.y)) {
+                        score++; timeLeft += 3; rackCount++;
+                        this.add.sprite(45 + (rackCount % 12) * 32, rackCount < 12 ? 50 : 75, 'weight').setScale(0.6).setAlpha(0.4).setTint(0xff3f34);
+                        showFloat("+3s", player.x, player.y, "#00ff88");
+                        isHolding = null; spawnWeight();
+                    } else { isHolding = null; }
+                } else if (Phaser.Math.Distance.Between(player.x, player.y, activeWeight.x, activeWeight.y) < 60) {
+                    isHolding = activeWeight;
+                }
+            };
+
+            document.getElementById('action-btn').addEventListener('pointerdown', (e) => { e.preventDefault(); interact(); });
+            keyE.on('down', interact);
+            this.scene.pause();
+        }
+
+        function spawnWeight() {
+            let x, y;
+            do { x = Phaser.Math.Between(50, 400); y = Phaser.Math.Between(200, 700); } 
+            while (Phaser.Math.Distance.Between(x, y, rackZone.x, rackZone.y) < 150);
+            activeWeight.setPosition(x, y).setTint(0xffffff);
+        }
+
+        function showFloat(txt, x, y, col) {
+            let t = game.scene.scenes[0].add.text(x, y, txt, { font: 'bold 24px Arial', fill: col });
+            game.scene.scenes[0].tweens.add({ targets: t, y: y - 60, alpha: 0, duration: 600, onComplete: () => t.destroy() });
+        }
+
+        function update(time, delta) {
+            if (!isPlaying) return;
+            timeLeft -= delta / 1000;
+            
+            let enemyBaseSpeed = Math.min(100 + (score * 9), 270);
+            let detectionRange = Math.min(140 + (score * 6), 360);
+
+            let pSpeed = 240;
+            if (this.sys.game.device.os.desktop) {
+                let vx = 0, vy = 0;
+                if (cursors.left.isDown) vx = -pSpeed; else if (cursors.right.isDown) vx = pSpeed;
+                if (cursors.up.isDown) vy = -pSpeed; else if (cursors.down.isDown) vy = pSpeed;
+                player.setVelocity(vx, vy);
+            } else if (targetPoint) {
+                if (Phaser.Math.Distance.Between(player.x, player.y, targetPoint.x, targetPoint.y) > 10) 
+                    this.physics.moveToObject(player, targetPoint, pSpeed);
+                else { player.body.setVelocity(0); targetPoint = null; }
+            }
+
+            people.children.iterate(p => {
+                let d = Phaser.Math.Distance.Between(p.x, p.y, player.x, player.y);
+                if (d < detectionRange) this.physics.moveToObject(p, player, enemyBaseSpeed);
+                else if (p.body.velocity.x === 0 && p.body.velocity.y === 0) 
+                    p.setVelocity(Phaser.Math.Between(-enemyBaseSpeed, enemyBaseSpeed), Phaser.Math.Between(-enemyBaseSpeed, enemyBaseSpeed));
+            });
+
+            if (isHolding) isHolding.setPosition(player.x, player.y);
+
+            const timerEl = document.getElementById('timer-display');
+            timerEl.innerText = Math.max(0, timeLeft).toFixed(1) + "s";
+            document.getElementById('score-display').innerText = `PESAS: ${score}`;
+            
+            if (timeLeft <= 4) timerEl.classList.add('time-critical');
+            else timerEl.classList.remove('time-critical');
+
+            const btn = document.getElementById('action-btn');
+            let isNear = Phaser.Math.Distance.Between(player.x, player.y, activeWeight.x, activeWeight.y) < 60;
+            btn.style.visibility = (isNear || isHolding) ? 'visible' : 'hidden';
+            btn.innerText = isHolding ? 'DEJAR' : 'TOMAR';
+
+            if (timeLeft <= 0) gameOver();
+        }
+
+        function gameOver() {
+            isPlaying = false;
+            game.scene.scenes[0].scene.pause();
+            
+            const finalScore = score;
+            document.getElementById('final-score').innerText = finalScore;
+            
+            // Lógica de Clasificación (Leaderboard)
+            let highScores = JSON.parse(localStorage.getItem('gymRushScores') || '[]');
+            highScores.push(finalScore);
+            highScores.sort((a, b) => b - a);
+            highScores = highScores.slice(0, 5); // Solo guardar el top 5
+            localStorage.setItem('gymRushScores', JSON.stringify(highScores));
+
+            // Dibujar tabla
+            const tbody = document.getElementById('leaderboard-body');
+            tbody.innerHTML = highScores.map((s, index) => `
+                <tr>
+                    <td class="rank-col">#${index + 1}</td>
+                    <td style="text-align: left;">MEJOR MARCA</td>
+                    <td class="score-col">${s}</td>
+                </tr>
+            `).join('');
+
+            document.getElementById('end-screen').classList.remove('hidden');
+        }
+
+        function startGame() {
+            document.getElementById('start-screen').classList.add('hidden');
+            isPlaying = true;
+            game.scene.scenes[0].scene.resume();
+        }
+    </script>
+</body>
+</html>
