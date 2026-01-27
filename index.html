@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gym Rush: Arcade Joystick</title>
+    <title>Power Dash: Arcade</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         body { margin: 0; background: #000; overflow: hidden; font-family: 'Courier New', Courier, monospace; }
@@ -39,12 +39,12 @@
         </div>
 
         <div id="start-screen" class="overlay">
-            <h1 style="color:#ff3f34">GYM RUSH</h1>
+            <h1 style="color:#ff3f34; font-size: 3rem;">POWER DASH</h1>
             <p>MODO HARDCORE</p>
             <div style="text-align: left; background: rgba(255,255,255,0.05); padding: 15px; border-left: 4px solid #ff3f34; font-size: 0.9rem;">
                 • Tiempo: <b>10s iniciales</b><br>
-                • Bono: <b>+3s</b> por pesa<br>
-                • Móvil: <b>Joystick Izq.</b> para mover
+                • Bono: <b>+5s</b> por pesa<br>
+                • Cuidado: ¡No choques!
             </div>
             <button onclick="startGame()">¡DALE!</button>
         </div>
@@ -55,7 +55,7 @@
             <h1>FIN DEL TIEMPO</h1>
             <div style="font-size: 2.5rem; color: #ff3f34; font-weight: bold;" id="final-score">0</div>
             <table class="leaderboard-table" id="leaderboard">
-                </table>
+            </table>
             <button onclick="location.reload()">REINTENTAR</button>
         </div>
     </div>
@@ -102,24 +102,33 @@
             this.add.rectangle(225, 60, 410, 90, 0x1a1a1a).setDepth(-1);
             
             machines = this.physics.add.staticGroup();
+            // Posiciones fijas de las máquinas
             [[80, 250], [370, 250], [225, 450], [80, 650], [370, 650]].forEach(p => machines.create(p[0], p[1], 'machine'));
 
             player = this.physics.add.sprite(225, 750, 'player').setCollideWorldBounds(true).setCircle(14);
-            activeWeight = this.physics.add.sprite(0, 0, 'weight');
+            
+            // Crear pesa fuera de pantalla y luego posicionarla bien
+            activeWeight = this.physics.add.sprite(-100, -100, 'weight');
             spawnWeight();
 
             people = this.physics.add.group();
             for(let i=0; i<4; i++) {
-                let p = people.create(Phaser.Math.Between(50, 400), Phaser.Math.Between(150, 500), 'person');
+                let pos = getValidSpawn(false); // Obtener posición segura
+                let p = people.create(pos.x, pos.y, 'person');
                 p.setCollideWorldBounds(true).setBounce(1).setCircle(14);
             }
 
+            // COLISIONES
             this.physics.add.collider(player, machines);
             this.physics.add.collider(people, machines);
+            
+            // NUEVO: Los enemigos chocan entre sí para no encimarse
+            this.physics.add.collider(people, people);
+
             this.physics.add.collider(player, people, () => {
                 if (isHolding) {
                     isHolding = null;
-                    timeLeft = Math.max(0, timeLeft - 1);
+                    timeLeft = Math.max(0, timeLeft - 2); // Penalización
                     this.cameras.main.shake(200, 0.02);
                 }
             });
@@ -135,7 +144,7 @@
                 joystickThumb = this.add.circle(80, 700, 25, 0xff3f34, 0.5).setDepth(101);
                 
                 this.input.on('pointerdown', (p) => {
-                    if (p.x < 225) { // Solo si toca el lado izquierdo
+                    if (p.x < 225) { 
                         joystickActive = true;
                         joystickBase.setPosition(p.x, p.y);
                         joystickThumb.setPosition(p.x, p.y);
@@ -163,9 +172,12 @@
                 if (!isPlaying) return;
                 if (isHolding) {
                     if (Phaser.Geom.Rectangle.Contains(rackZone.getBounds(), player.x, player.y)) {
-                        score++; timeLeft += 3; rackCount++;
+                        score++; 
+                        timeLeft += 5; // CAMBIO: +5 Segundos
+                        rackCount++;
                         this.add.sprite(45 + (rackCount % 12) * 32, rackCount < 12 ? 50 : 75, 'weight').setScale(0.6).setAlpha(0.4).setTint(0xff3f34);
-                        isHolding = null; spawnWeight();
+                        isHolding = null; 
+                        spawnWeight();
                     } else { isHolding = null; }
                 } else if (Phaser.Math.Distance.Between(player.x, player.y, activeWeight.x, activeWeight.y) < 60) {
                     isHolding = activeWeight;
@@ -179,11 +191,34 @@
             this.scene.pause();
         }
 
+        // NUEVA FUNCIÓN: Busca posición segura lejos de máquinas y zona de inicio
+        function getValidSpawn(checkPlayer = false) {
+            let x, y, valid;
+            let safetyLoops = 0;
+            do {
+                valid = true;
+                x = Phaser.Math.Between(50, 400);
+                y = Phaser.Math.Between(200, 700);
+                
+                // 1. No muy cerca del Rack (zona roja arriba)
+                if (Phaser.Math.Distance.Between(x, y, 225, 60) < 150) valid = false;
+
+                // 2. Si es para enemigo, no aparecer encima del jugador
+                if (checkPlayer && player && Phaser.Math.Distance.Between(x, y, player.x, player.y) < 100) valid = false;
+
+                // 3. No aparecer ENCIMA de ninguna máquina
+                machines.children.iterate(m => {
+                    if (Phaser.Math.Distance.Between(x, y, m.x, m.y) < 60) valid = false;
+                });
+
+                safetyLoops++;
+            } while (!valid && safetyLoops < 100);
+            return { x, y };
+        }
+
         function spawnWeight() {
-            let x, y;
-            do { x = Phaser.Math.Between(50, 400); y = Phaser.Math.Between(200, 700); } 
-            while (Phaser.Math.Distance.Between(x, y, 225, 60) < 150);
-            activeWeight.setPosition(x, y);
+            let pos = getValidSpawn(false);
+            activeWeight.setPosition(pos.x, pos.y);
         }
 
         function update(time, delta) {
@@ -193,12 +228,11 @@
             let enemySpeed = Math.min(100 + (score * 9), 270);
             let pSpeed = 240;
 
-            // Movimiento Híbrido
+            // Movimiento
             let vx = 0, vy = 0;
             if (cursors.left.isDown) vx = -pSpeed; else if (cursors.right.isDown) vx = pSpeed;
             if (cursors.up.isDown) vy = -pSpeed; else if (cursors.down.isDown) vy = pSpeed;
 
-            // Sobrescribir con Joystick si está activo
             if (joystickActive) {
                 vx = joystickVector.x * pSpeed;
                 vy = joystickVector.y * pSpeed;
@@ -231,11 +265,12 @@
             game.scene.scenes[0].scene.pause();
             document.getElementById('final-score').innerText = score;
             
-            let highScores = JSON.parse(localStorage.getItem('gymRushScores') || '[]');
+            // Cambio de clave de guardado a PowerDash
+            let highScores = JSON.parse(localStorage.getItem('powerDashScores') || '[]');
             highScores.push(score);
             highScores.sort((a, b) => b - a);
             highScores = highScores.slice(0, 5);
-            localStorage.setItem('gymRushScores', JSON.stringify(highScores));
+            localStorage.setItem('powerDashScores', JSON.stringify(highScores));
 
             document.getElementById('leaderboard').innerHTML = `
                 <tr><th>POS</th><th>RECORD</th><th>SCORE</th></tr>
