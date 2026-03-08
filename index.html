@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ELLIT RUSH: DEEP BLUE</title>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+    <style>
+        /* FONDO AZUL OSCURO Y CIAN NEÓN RESCATADO */
+        body { margin: 0; background: #012E40; overflow: hidden; font-family: 'Arial', sans-serif; }
+        #game-container { width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; }
+        
+        .hud { position: absolute; top: 15px; width: 100%; display: flex; justify-content: space-around; color: white; z-index: 10; font-weight: bold; pointer-events: none; text-shadow: 0 0 5px #1DB6F2; }
+        
+        .overlay { position: absolute; background: rgba(1, 46, 64, 0.98); width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 20; text-align: center; color: white; padding: 25px; box-sizing: border-box; border: 4px solid #1DB6F2; box-shadow: 0 0 30px #1DB6F2; }
+        .hidden { display: none !important; }
+        
+        button { pointer-events: auto; background: linear-gradient(180deg, #1DB6F2 0%, #032CA6 100%); border: none; padding: 15px 45px; font-weight: bold; border-radius: 5px; cursor: pointer; margin-top: 20px; font-size: 1.2rem; color: white; width: 80%; box-shadow: 0 0 15px #1DB6F2; text-transform: uppercase; }
+        button:active { transform: scale(0.95); }
+
+        #action-btn { position: absolute; bottom: 40px; right: 20px; width: 90px; height: 90px; background: rgba(29, 182, 242, 0.2); border: 3px solid #1DB6F2; border-radius: 50%; color: #1DB6F2; display: flex; justify-content: center; align-items: center; font-weight: bold; pointer-events: auto; visibility: hidden; z-index: 15; user-select: none; font-size: 1rem; backdrop-filter: blur(5px); box-shadow: 0 0 10px #1DB6F2; }
+        #dash-btn { position: absolute; bottom: 40px; left: 20px; width: 70px; height: 70px; background: rgba(3, 166, 166, 0.2); border: 3px solid #03A6A6; border-radius: 50%; color: #03A6A6; display: flex; justify-content: center; align-items: center; font-weight: bold; pointer-events: auto; z-index: 15; user-select: none; font-size: 2rem; backdrop-filter: blur(5px); box-shadow: 0 0 10px #03A6A6; }
+        
+        .dash-cooldown { opacity: 0.3; border-color: #555 !important; color: #555 !important; }
+        
+        #error-log { position: absolute; top: 0; left: 0; color: #ff3333; background: rgba(0,0,0,0.9); z-index: 9999; padding: 10px; display: none; text-align: left; }
+
+        /* TABLA DE CLASIFICACIÓN NEÓN RESCATADA */
+        table { margin-top: 15px; border-collapse: collapse; width: 80%; max-width: 300px; color: white; border: 1px solid #1DB6F2; box-shadow: 0 0 10px #1DB6F2; }
+        th, td { padding: 10px; border: 1px solid #1DB6F2; text-align: center; font-size: 1.2rem; }
+        th { font-weight: bold; color: #1DB6F2; background: rgba(0,0,0,0.5); }
+    </style>
+</head>
+<body>
+
+    <div id="error-log"></div>
+
+    <div id="game-container">
+        <div class="hud">
+            <div id="timer-display" style="font-size: 1.3rem;">10.0s</div>
+            <div id="score-display" style="font-size: 1.3rem;">PESAS: 0</div>
+        </div>
+
+        <div id="start-screen" class="overlay">
+            <h1 style="color:#1DB6F2; font-size: 3rem; margin-bottom: 0; text-shadow: 0 0 10px #1DB6F2;">ELLIT RUSH</h1>
+            <p style="color: #03A6A6; letter-spacing: 2px;">V3.0 DETAILED GYM</p>
+            
+            <div id="tutorial-box" style="text-align: left; background: rgba(0,0,0,0.3); padding: 20px; border-radius: 10px; border: 1px solid #1DB6F2; margin: 20px 0; color: white;">
+                </div>
+            
+            <button onclick="startGame()">INICIAR RUTINA</button>
+        </div>
+
+        <div id="dash-btn">⚡</div>
+        <div id="action-btn">TOMAR</div>
+
+        <div id="end-screen" class="overlay hidden">
+            <h1 style="color: #FF3F34; text-shadow: 0 0 10px #FF3F34;">TIEMPO FUERA</h1>
+            <div style="font-size: 4rem; color: #1DB6F2; text-shadow: 0 0 10px #1DB6F2;" id="final-score">0</div>
+            <p style="margin-top:0">MANCUERNAS RESCATADAS</p>
+            
+            <h3 style="margin-bottom: 5px; color: #03A6A6;">MEJORES PUNTUACIONES</h3>
+            <table id="leaderboard"></table>
+            
+            <button onclick="location.reload()">REINTENTAR</button>
+        </div>
+    </div>
+
+    <script>
+        // --- SISTEMA ANTIBUGS ---
+        window.onerror = function(msg, url, line) {
+            const log = document.getElementById('error-log');
+            log.style.display = 'block';
+            log.innerHTML += `ERROR: ${msg} (Línea: ${line})<br>`;
+            return false;
+        };
+
+        // --- SISTEMA DE PUNTUACIONES (LOCALSTORAGE) ---
+        function saveAndGetHighScores(newScore) {
+            let scores = JSON.parse(localStorage.getItem('ellitRushTopScores')) || [];
+            scores.push(newScore);
+            scores.sort((a, b) => b - a); // Ordenar de mayor a menor
+            scores = scores.slice(0, 5); // Guardar solo el top 5
+            localStorage.setItem('ellitRushTopScores', JSON.stringify(scores));
+            return scores;
+        }
+
+        function displayLeaderboard(scores) {
+            let html = "<tr><th>#</th><th>PUNTOS</th></tr>";
+            scores.forEach((s, index) => {
+                html += `<tr><td>${index + 1}</td><td><b>${s}</b></td></tr>`;
+            });
+            document.getElementById('leaderboard').innerHTML = html;
+        }
+
+        // --- DETECCIÓN DE TUTORIAL ---
+        function setTutorialText() {
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            const tutorialDiv = document.getElementById('tutorial-box');
+            
+            if (isMobile) {
+                tutorialDiv.innerHTML = "<b>📱 CÓMO JUGAR (MÓVIL):</b><br><br>• Usa el <b>Joystick izquierdo</b> para moverte.<br>• Toca ⚡ para usar tu <b>Dash</b> (Velocidad).<br>• Acércate a una pesa y toca <b>TOMAR</b>.<br>• Lleva la pesa a la zona azul de arriba para sumar puntos y tiempo.<br>• ¡Esquiva a los demás miembros del gym!";
+            } else {
+                tutorialDiv.innerHTML = "<b>💻 CÓMO JUGAR (PC):</b><br><br>• Usa las <b>Flechas del teclado</b> para moverte.<br>• Presiona <b>ESPACIO</b> para usar el Dash (Velocidad).<br>• Acércate a una pesa y presiona <b>'E'</b> para tomarla.<br>• Lleva la pesa a la zona azul de arriba para sumar puntos y tiempo.<br>• ¡Esquiva a los demás miembros del gym!";
+            }
+        }
+        setTutorialText(); // Ejecutar inmediatamente
+
+        // --- CONSTANTES DE DISEÑO RESCATADAS ---
+        const WORLD_W = 800;
+        const WORLD_H = 800;
+        const C_CYAN = 0x1DB6F2;  // Azul Ellit Claro (Acento neón)
+        const C_BLUE = 0x012E40;  // Azul Ellit Oscuro (Fondo secundario)
+        const C_DARK = 0x011C26;  // Fondo principal (Aún más oscuro para neón)
+        const C_GREEN = 0x03A6A6; // Acento Zona Segura
+        const C_RED = 0xFF3F34;   // Enemigo neón
+        const C_YELLOW = 0xFFFF00; // Flechas indicadoras
+
+        // Variables
+        let player, activeWeight, machines, people, rackZone, pointerArrow;
+        let isHolding = null, isPlaying = false, timeLeft = 10.0, score = 0, rackCount = 0;
+        let cursors, keyE, keySpace;
+        let canDash = true, isDashing = false;
+        let joystickBase, joystickThumb, joystickActive = false, joystickVector = { x: 0, y: 0 };
+        let gameInstance = null;
+
+        const config = {
+            type: Phaser.AUTO,
+            parent: 'game-container',
+            width: 450,
+            height: 800,
+            backgroundColor: '#012E40', // Color de fondo de seguridad
+            physics: { default: 'arcade', arcade: { debug: false } }, 
+            scene: { preload: preload, create: create, update: update }
+        };
+
+        // INICIO SEGURO
+        try {
+            gameInstance = new Phaser.Game(config);
+        } catch(e) { console.error(e); }
+
+        function preload() {
+            // GENERAMOS LAS TEXTURAS EN MEMORIA CON MUCHO MÁS DETALLE
+            const g = this.make.graphics({ x: 0, y: 0, add: false });
+            
+            // Player con Mochila
+            g.clear(); g.fillStyle(C_CYAN); g.fillCircle(15, 15, 15); // Cuerpo
+            g.fillStyle(0xffffff, 0.3); g.fillRect(7, 10, 16, 10); // Mochila
+            g.lineStyle(2, 0xffffff); g.strokeCircle(15, 15, 15);
+            g.generateTexture('player', 32, 32);
+            
+            // Pesa Mancuerna Realista
+            g.clear(); 
+            g.fillStyle(0x333333); g.fillRect(2, 11, 28, 10); // Barra
+            g.fillStyle(0x000000); g.fillRect(0, 5, 6, 22); g.fillRect(5, 7, 3, 18); // Peso izq
+            g.fillStyle(0x000000); g.fillRect(26, 5, 6, 22); g.fillRect(24, 7, 3, 18); // Peso der
+            g.lineStyle(1, 0x555555); g.strokeRect(0, 5, 6, 22); g.strokeRect(26, 5, 6, 22);
+            g.generateTexture('weight', 32, 32);
+            
+            // Enemigo Agresivo (Shadow con ojos neón)
+            g.clear(); 
+            g.fillStyle(0x050505); g.fillCircle(15, 15, 15); // Cuerpo negro
+            g.fillStyle(C_RED); g.fillCircle(10, 10, 3); g.fillCircle(20, 10, 3); // Ojos neón
+            g.lineStyle(3, C_RED, 0.5); g.strokeCircle(15, 15, 15); // Aura roja
+            g.generateTexture('person', 32, 32);
+
+            // Flecha Neón
+            g.clear(); g.lineStyle(3, C_YELLOW); g.beginPath(); g.moveTo(0,0); g.lineTo(10,10); g.lineTo(-10,10); g.lineTo(0,0); g.strokePath();
+            g.generateTexture('arrow', 20, 20);
+        }
+
+        function create() {
+            this.physics.world.setBounds(0, 0, WORLD_W, WORLD_H);
+            
+            // --- 1. DIBUJAR EL GIMNASIO (Mas detallado) ---
+            // Suelo
+            this.add.rectangle(WORLD_W/2, WORLD_H/2, WORLD_W, WORLD_H, C_DARK).setDepth(-10);
+            this.add.grid(WORLD_W/2, WORLD_H/2, WORLD_W, WORLD_H, 100, 100, 0x1a1a1a, 0.3).setDepth(-9);
+            
+            // Patrón de suelo neón sutil
+            for(let i=0; i<WORLD_W; i+=200) {
+                this.add.rectangle(i, WORLD_H/2, 1, WORLD_H, C_CYAN, 0.05).setDepth(-9);
+            }
+            for(let i=0; i<WORLD_H; i+=200) {
+                this.add.rectangle(WORLD_W/2, i, WORLD_W, 1, C_CYAN, 0.05).setDepth(-9);
+            }
+
+            // Paredes (Bordes)
+            let wallColor = C_CYAN;
+            this.add.rectangle(WORLD_W/2, 0, WORLD_W, 20, wallColor).setDepth(-8).setAlpha(0.6);
+            this.add.rectangle(WORLD_W/2, WORLD_H, WORLD_W, 20, wallColor).setDepth(-8).setAlpha(0.6);
+            this.add.rectangle(0, WORLD_H/2, 20, WORLD_H, wallColor).setDepth(-8).setAlpha(0.6);
+            this.add.rectangle(WORLD_W, WORLD_H/2, 20, WORLD_H, wallColor).setDepth(-8).setAlpha(0.6);
+
+            // LOGO (Texto de fondo)
+            this.add.text(WORLD_W/2, WORLD_H/2, "ELLIT", { fontSize: '80px', fontStyle: 'bold', color: '#012E40' }).setOrigin(0.5).setAlpha(0.3).setDepth(-9);
+
+            // --- 2. ZONA RACK (Arriba) ---
+            rackZone = this.add.rectangle(WORLD_W/2, 60, 350, 80, C_GREEN, 0.1).setStrokeStyle(3, C_GREEN);
+            this.physics.add.existing(rackZone, true);
+            this.add.text(WORLD_W/2, 60, "ENTREGA AQUÍ", { fontSize: '20px', color: '#03A6A6', fontStyle: 'bold' }).setOrigin(0.5);
+
+            // --- 3. CONSTRUCCIÓN DE MÁQUINAS DETALLADAS ---
+            machines = this.physics.add.staticGroup();
+
+            // Función auxiliar para crear máquinas detalladas
+            const createDetailedMachine = (x, y, type, w, h, name) => {
+                let mg = this.add.graphics();
+                machines.add(this.add.rectangle(x, y, w, h)); // Cuerpo físico
+
+                // Base común
+                mg.fillStyle(C_BLUE, 0.8); mg.fillRoundedRect(x - w/2, y - h/2, w, h, 6);
+                mg.lineStyle(2, C_CYAN, 0.8); mg.strokeRoundedRect(x - w/2, y - h/2, w, h, 6);
+                mg.fillStyle(0x000000); // Detalles negros
+
+                if (type === 'prensa') {
+                    mg.fillRect(x - w/3, y - h/4, w/1.5, h/2); // Respaldar
+                    mg.lineStyle(4, 0x555555); mg.beginPath(); mg.moveTo(x - w/3, y + h/2.5); mg.lineTo(x + w/3, y - h/2.5); mg.strokePath(); // Barras
+                    mg.fillStyle(0x000000); mg.fillCircle(x + w/3, y - h/2.5, 10); mg.fillCircle(x + w/3, y - h/2.5, 5); // Pesos circulares
+                } else if (type === 'prensa_horizontal') {
+                    mg.fillRect(x - w/2.5, y - h/6, w/1.25, h/3); // Asiento/Base
+                    mg.fillStyle(0x000000); mg.fillRect(x - w/2, y - h/2, 10, h); // Torre de pesos
+                    mg.lineStyle(2, 0x555555); mg.strokeRect(x - w/2, y - h/2, 10, h);
+                } else if (type === 'jaula') {
+                    mg.fillStyle(0x1a1a1a); mg.fillRect(x - w/2.5, y - h/2.5, w/1.25, h/1.25); // Plataforma
+                    mg.lineStyle(4, 0x555555); // Columnas
+                    mg.strokeRect(x - w/2.2, y - h/2, 8, h); mg.strokeRect(x + w/2.2 - 8, y - h/2, 8, h);
+                    mg.fillStyle(0x000000); mg.fillRect(x-w/2, y-h/2.2, w, 15); // Barra superior
+                } else if (type === 'rack_sentadilla') {
+                    mg.fillStyle(0x1a1a1a); mg.fillRect(x - w/2.5, y, w/1.25, h/2); // Plataforma
+                    mg.lineStyle(4, 0x555555); mg.strokeRect(x - w/2.2, y - h/2, 8, h); mg.strokeRect(x + w/2.2 - 8, y - h/2, 8, h);
+                    mg.lineStyle(3, 0x333333); mg.strokeRect(x-w/2, y, w, 5); // Barra cargada
+                    mg.fillStyle(0x000000); mg.fillCircle(x-w/2.5, y, 8); mg.fillCircle(x+w/2.5, y, 8); // Discos
+                } else if (type === 'jaula_funcional') {
+                    mg.lineStyle(5, 0x555555); mg.strokeRect(x - w/2, y - h/2, w, h); // Postes largos
+                    mg.strokeRect(x - w/2.2, y - h/2, w/2.2, 5); // Barra dominadas
+                    this.add.grid(x,y, w, h, 20, 20, 0x333333, 0.1); // Rejilla visual
+                } else if (type === 'rack_mancuernas') {
+                    mg.lineStyle(3, 0x555555); // Patas del rack
+                    mg.strokeLineShape(new Phaser.Geom.Line(x - w/2, y + h/2.5, x + w/2, y + h/2.5)); // Estante bajo
+                    mg.strokeLineShape(new Phaser.Geom.Line(x - w/2, y - h/2.5, x + w/2, y - h/2.5)); // Estante alto
+                    // Mancuernas decorativas
+                    for(let i=0; i<w; i+=15) { 
+                        mg.fillStyle(0x000000); mg.fillCircle(x - w/2 + i, y - h/2.5, 4); mg.fillCircle(x - w/2 + i, y + h/2.5, 4);
+                    }
+                } else if (type === 'banca') {
+                    mg.fillStyle(0x111111); mg.fillRoundedRect(x - w/2 + 5, y - h/2 + 5, w - 10, h - 10, 4); // Respaldar
+                    mg.fillStyle(C_CYAN, 0.3); mg.fillCircle(x, y + h/2.2, 10); // Soporte cabeza visual
+                } else if (type === 'cardio') {
+                    mg.fillStyle(0x111111); mg.fillRect(x - w/2 + 2, y, w - 4, h / 2); // Cinta
+                    mg.fillStyle(0x000000); mg.fillRect(x - w/2, y - h/2, 5, h); mg.fillRect(x + w/2 - 5, y - h/2, 5, h); // Postes control
+                    mg.fillStyle(C_CYAN, 0.5); mg.fillRect(x - w/2, y - h/2, w, 10); // Pantalla neón sutil
+                } else if (type === 'agua') {
+                    mg.fillStyle(C_CYAN, 0.2); mg.fillRect(x - w/2, y, w, h/2); // Agua visual
+                    mg.lineStyle(3, 0xdddddd); mg.strokeRect(x - w/2, y - h/2, w, h); // Botella
+                } else if (type === 'mats') {
+                    mg.fillStyle(C_GREEN, 0.2); // Pilas de colchonetas
+                    mg.fillRoundedRect(x - w/2, y - h/2, w, h/3, 2); mg.fillRoundedRect(x - w/2, y - h/2 + h/3, w, h/3, 2); mg.fillRoundedRect(x - w/2, y - h/2 + 2*h/3, w, h/3, 2);
+                }
+
+                if (name) { mg.fillStyle(0x111111); mg.fillRect(x - w/2, y + h/2 + 2, w, 14); this.add.text(x, y + h/2 + 9, name, { fontSize: '10px', color: C_CYAN, fontStyle: 'bold' }).setOrigin(0.5); }
+            };
+
+            // ** FILA SUPERIOR **
+            createDetailedMachine(120, 120, 'agua', 60, 60); 
+            createDetailedMachine(260, 210, 'prensa_horizontal', 140, 100, "PEC FLY");
+            createDetailedMachine(660, 210, 'prensa', 180, 100, "PRENSA"); 
+
+            // ** JAULA CENTRAL (Cables) **
+            createDetailedMachine(400, 300, 'jaula', 240, 80); 
+
+            // ** RACKS DE SENTADILLA (Medio) **
+            createDetailedMachine(200, 500, 'rack_sentadilla', 120, 120, "SENTADILLA 1"); 
+            createDetailedMachine(600, 500, 'rack_sentadilla', 120, 120, "SENTADILLA 2"); 
+
+            // ** JAULA FUNCIONAL (Centro Abajo) **
+            createDetailedMachine(370, 700, 'jaula_funcional', 60, 160); 
+            createDetailedMachine(530, 780, 'banca', 120, 40); // Banca aislada
+
+            // ** BANCAS (Abajo Izquierda) **
+            createDetailedMachine(100, 700, 'rack_mancuernas', 40, 180, "MANCUERNAS");
+            createDetailedMachine(240, 700, 'banca', 100, 40, "BANCA 1"); 
+            createDetailedMachine(240, 760, 'banca', 100, 40, "BANCA 2"); 
+            createDetailedMachine(240, 820, 'banca', 100, 40, "BANCA 3"); 
+
+            // ** CAMINADORAS (Abajo Derecha) **
+            createDetailedMachine(680, 680, 'cardio', 120, 50, "CINTA 1");
+            createDetailedMachine(680, 740, 'cardio', 120, 50, "CINTA 2");
+            createDetailedMachine(680, 800, 'cardio', 120, 50, "CINTA 3");
+
+            // ** LATERALES **
+            createDetailedMachine(60, 450, 'prensa_horizontal', 50, 120, "PULLEY");
+            createDetailedMachine(740, 450, 'mats', 50, 120, "COLCHONETAS");
+
+            // --- 4. CONFIGURACIÓN DEL JUEGO ---
+            player = this.physics.add.sprite(WORLD_W/2, WORLD_H/2, 'player').setCollideWorldBounds(true).setCircle(14);
+            
+            this.cameras.main.setBounds(0, 0, WORLD_W, WORLD_H);
+            this.cameras.main.startFollow(player, true, 0.09, 0.09);
+
+            pointerArrow = this.add.sprite(0, 0, 'arrow').setDepth(90).setVisible(false);
+
+            activeWeight = this.physics.add.sprite(-100, -100, 'weight');
+            spawnWeight();
+
+            people = this.physics.add.group();
+            for(let i=0; i<4; i++) {
+                let pos = getValidSpawn(true);
+                let p = people.create(pos.x, pos.y, 'person');
+                p.setCollideWorldBounds(true).setBounce(1).setCircle(14);
+            }
+
+            // Colisiones
+            this.physics.add.collider(player, machines);
+            this.physics.add.collider(people, machines);
+            this.physics.add.collider(people, people);
+
+            this.physics.add.collider(player, people, () => {
+                if (isDashing) return;
+                if (isHolding) {
+                    isHolding = null;
+                    timeLeft = Math.max(0, timeLeft - 3); // Penalización de tiempo
+                    this.cameras.main.shake(200, 0.02);
+                    spawnWeight(); // Hacemos respawn de la pesa en otro lado para más dificultad
+                }
+            });
+
+            // Input
+            cursors = this.input.keyboard.createCursorKeys();
+            keyE = this.input.keyboard.addKey('E');
+            keySpace = this.input.keyboard.addKey('SPACE');
+
+            setupJoystick(this);
+
+            // Eventos Botones
+            document.getElementById('action-btn').addEventListener('touchstart', (e) => { e.preventDefault(); tryPickup(); });
+            document.getElementById('dash-btn').addEventListener('touchstart', (e) => { e.preventDefault(); triggerDash(); });
+            keyE.on('down', tryPickup);
+            keySpace.on('down', triggerDash);
+            
+            this.scene.pause();
+        }
+
+        // --- LÓGICA DE JUEGO ---
+        function deliverWeight(scene) {
+            score++; 
+            timeLeft += 5; 
+            rackCount++;
+            scene.cameras.main.flash(200, 0, 255, 0); // Flash verde éxito
+            isHolding = null; 
+            spawnWeight();
+        }
+
+        function getValidSpawn(checkPlayer = false) {
+            let x, y, valid, loops = 0;
+            do {
+                valid = true;
+                x = Phaser.Math.Between(60, WORLD_W-60); 
+                y = Phaser.Math.Between(150, WORLD_H-60);
+                if (Phaser.Math.Distance.Between(x, y, WORLD_W/2, 60) < 180) valid = false;
+                if (checkPlayer && player && Phaser.Math.Distance.Between(x, y, player.x, player.y) < 250) valid = false;
+                machines.children.iterate(m => { 
+                    if (Phaser.Math.Distance.Between(x, y, m.x, m.y) < (m.width+m.height)/3) valid = false; 
+                });
+                loops++;
+            } while (!valid && loops < 200);
+            return { x, y };
+        }
+
+        function spawnWeight() {
+            let pos = getValidSpawn(true);
+            activeWeight.setPosition(pos.x, pos.y);
+        }
+
+        function setupJoystick(scene) {
+            const isMobile = !scene.sys.game.device.os.desktop;
+            if (isMobile) {
+                joystickBase = scene.add.circle(100, 680, 50, 0xffffff, 0.05).setDepth(1000).setScrollFactor(0); // Más tenue
+                joystickThumb = scene.add.circle(100, 680, 25, C_CYAN, 0.5).setDepth(1001).setScrollFactor(0);
+                
+                scene.input.on('pointerdown', (pointer) => {
+                    if (pointer.position.x < 225 && pointer.position.y > 500) { 
+                        joystickActive = true;
+                        joystickBase.setPosition(pointer.position.x, pointer.position.y);
+                        joystickThumb.setPosition(pointer.position.x, pointer.position.y);
+                    }
+                });
+                scene.input.on('pointermove', (pointer) => {
+                    if (joystickActive) {
+                        let dist = Phaser.Math.Distance.Between(pointer.position.x, pointer.position.y, joystickBase.x, joystickBase.y);
+                        let angle = Phaser.Math.Angle.Between(joystickBase.x, joystickBase.y, pointer.position.x, pointer.position.y);
+                        dist = Math.min(dist, 50);
+                        joystickThumb.setPosition(joystickBase.x + Math.cos(angle)*dist, joystickBase.y + Math.sin(angle)*dist);
+                        joystickVector = { x: Math.cos(angle) * (dist/50), y: Math.sin(angle) * (dist/50) };
+                    }
+                });
+                scene.input.on('pointerup', () => {
+                    joystickActive = false;
+                    joystickVector = { x: 0, y: 0 };
+                    joystickBase.setPosition(100, 680);
+                    joystickThumb.setPosition(100, 680);
+                });
+            }
+        }
+
+        function tryPickup() {
+            if (!isPlaying) return;
+            if (!isHolding && Phaser.Math.Distance.Between(player.x, player.y, activeWeight.x, activeWeight.y) < 60) {
+                isHolding = activeWeight;
+            }
+        }
+
+        function triggerDash() {
+            if (!isPlaying || !canDash) return;
+            canDash = false; isDashing = true;
+            player.setTint(C_GREEN); 
+            document.getElementById('dash-btn').classList.add('dash-cooldown');
+            
+            setTimeout(() => { isDashing = false; player.clearTint(); }, 200); 
+            setTimeout(() => {
+                canDash = true;
+                if(player.active) { 
+                    gameInstance.scene.scenes[0].tweens.add({ targets: player, alpha: 0.5, duration: 100, yoyo: true, repeat: 1 });
+                }
+                document.getElementById('dash-btn').classList.remove('dash-cooldown');
+            }, 2500); // 2.5s cooldown
+        }
+
+        function update(time, delta) {
+            if (!isPlaying) return;
+            timeLeft -= delta / 1000;
+            
+            // Efecto estela durante el Dash
+            if (isDashing) {
+                let trace = this.add.image(player.x, player.y, 'player');
+                trace.setTint(C_GREEN);
+                trace.setAlpha(0.3);
+                this.tweens.add({ targets: trace, alpha: 0, duration: 300, onComplete: () => trace.destroy() });
+            }
+
+            if (isHolding) {
+                if (this.physics.overlap(player, rackZone)) {
+                    deliverWeight(this);
+                }
+            }
+
+            let target = isHolding ? {x: WORLD_W/2, y: 60} : {x: activeWeight.x, y: activeWeight.y};
+            let distToTarget = Phaser.Math.Distance.Between(player.x, player.y, target.x, target.y);
+            
+            if (distToTarget > 250) { 
+                pointerArrow.setVisible(true);
+                pointerArrow.setPosition(player.x, player.y);
+                pointerArrow.setRotation(Phaser.Math.Angle.Between(player.x, player.y, target.x, target.y));
+                Phaser.Math.RotateAroundDistance(pointerArrow, player.x, player.y, pointerArrow.rotation, 50);
+            } else {
+                pointerArrow.setVisible(false);
+            }
+
+            let enemySpeed = Math.min(120 + (score * 3), 280); 
+            let pSpeed = isDashing ? 600 : 260; 
+
+            let vx = 0, vy = 0;
+            if (cursors.left.isDown) vx = -pSpeed; else if (cursors.right.isDown) vx = pSpeed;
+            if (cursors.up.isDown) vy = -pSpeed; else if (cursors.down.isDown) vy = pSpeed;
+
+            if (joystickActive) {
+                vx = joystickVector.x * pSpeed;
+                vy = joystickVector.y * pSpeed;
+            }
+            player.setVelocity(vx, vy);
+
+            people.children.iterate(p => {
+                let d = Phaser.Math.Distance.Between(p.x, p.y, player.x, player.y);
+                if (d < 350) {
+                    this.physics.moveToObject(p, player, isDashing ? 50 : enemySpeed);
+                } else {
+                    p.setVelocity(0,0); 
+                }
+            });
+
+            if (isHolding) isHolding.setPosition(player.x, player.y);
+
+            document.getElementById('timer-display').innerText = Math.max(0, timeLeft).toFixed(1) + "s";
+            document.getElementById('score-display').innerText = `PESAS: ${score}`;
+            
+            if (timeLeft <= 4) document.getElementById('timer-display').style.color = C_RED;
+            else document.getElementById('timer-display').style.color = '#ffffff';
+
+            const btn = document.getElementById('action-btn');
+            let isNear = Phaser.Math.Distance.Between(player.x, player.y, activeWeight.x, activeWeight.y) < 80;
+            btn.style.visibility = (isNear && !isHolding) ? 'visible' : 'hidden';
+
+            if (timeLeft <= 0) gameOver();
+        }
+
+        function gameOver() {
+            isPlaying = false;
+            gameInstance.scene.scenes[0].scene.pause();
+            
+            document.getElementById('final-score').innerText = score;
+            
+            // Guardar puntaje y generar tabla
+            let topScores = saveAndGetHighScores(score);
+            displayLeaderboard(topScores);
+            
+            document.getElementById('end-screen').classList.remove('hidden');
+        }
+
+        function startGame() {
+            document.getElementById('start-screen').classList.add('hidden');
+            isPlaying = true;
+            score = 0; timeLeft = 10.0; // Reinicio caliente
+            gameInstance.scene.scenes[0].scene.resume();
+        }
+    </script>
+</body>
+</html>
