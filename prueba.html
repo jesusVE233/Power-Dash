@@ -7,22 +7,18 @@
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/phaser3-rex-plugins/dist/rexvirtualjoystickplugin.min.js" crossorigin="anonymous"></script>
     <style>
-        /* RESET Y GLOBAL */
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Montserrat:wght@400;700;900&display=swap');
         
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
-        /* USAMOS dvh (Dynamic Viewport Height) PARA LA BARRA DE SAFARI EN iPHONE */
         body { margin: 0; background: #011C26; overflow: hidden; font-family: 'Montserrat', sans-serif; height: 100dvh; width: 100vw; }
         #game-container { width: 100vw; height: 100dvh; display: flex; justify-content: center; align-items: center; }
         
-        /* HUD Y PAUSA */
         .hud { position: absolute; top: 15px; width: 100%; display: flex; justify-content: space-around; align-items: center; color: white; z-index: 20; font-weight: bold; pointer-events: none; text-shadow: 0 0 5px #1DB6F2; }
         
         #pause-btn-hud { pointer-events: auto; cursor: pointer; font-size: 1.5rem; background: rgba(1, 28, 38, 0.6); border: 2px solid #1DB6F2; border-radius: 8px; padding: 5px 15px; backdrop-filter: blur(5px); transition: transform 0.2s; display: none; }
         #pause-btn-hud:active { transform: scale(0.8); }
 
-        /* ANIMACIONES MODERNAS */
         @keyframes slideInBlur {
             from { opacity: 0; transform: translateY(20px); filter: blur(10px); }
             to { opacity: 1; transform: translateY(0); filter: blur(0); }
@@ -54,14 +50,11 @@
             100% { opacity: 1; transform: scale(1); }
         }
 
-        /* OVERLAYS (MENÚS) - MÁS COMPACTOS PARA PANTALLAS LARGAS */
         .overlay { 
             position: absolute; inset: 0; background: rgba(1, 28, 38, 0.9); backdrop-filter: blur(12px); 
             display: flex; flex-direction: column; justify-content: center; align-items: center; 
-            /* Se redujo el gap para que no empuje los botones hacia abajo */
             gap: 12px; 
             color: white; z-index: 40; text-align: center; padding: 15px; box-sizing: border-box; border: 2px solid rgba(29, 182, 242, 0.3);
-            /* overflow-y evita que se corte si es pantalla muy pequeña */
             overflow-y: auto; 
         }
         .hidden { display: none !important; }
@@ -69,12 +62,10 @@
         #start-screen { animation: slideInBlur 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
         .transition-out { animation: fadeOutZoom 0.45s ease-in forwards !important; pointer-events: none; }
         
-        /* LOGOS Y TEXTOS */
         .ellit-logo { font-family: 'Orbitron', sans-serif; font-size: 3.5rem; margin-bottom: 10px; text-shadow: 0 0 15px #1DB6F2, 0 0 5px #fff; animation: textFloat 3s ease-in-out infinite; color: #1DB6F2; letter-spacing: 2px; }
         
         #tutorial-box { background: rgba(3, 166, 166, 0.15) !important; border-left: 4px solid #03A6A6 !important; width: 100%; max-width: 600px; padding: 15px; border-radius: 10px; margin: 10px 0; color: white; text-align: left; font-size: 0.9rem; }
 
-        /* SLIDERS DE AUDIO (ESTILO NEÓN) */
         .slider-container { display: flex; flex-direction: column; align-items: flex-start; margin-bottom: 10px; width: 80%; max-width: 350px; margin-left: auto; margin-right: auto; pointer-events: auto; }
         .slider-container label { color: #1DB6F2; font-family: 'Orbitron', sans-serif; margin-bottom: 5px; text-shadow: 0 0 5px #1DB6F2; font-size: 0.85rem; letter-spacing: 1px; }
         input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
@@ -82,7 +73,6 @@
         input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 18px; width: 18px; border-radius: 50%; background: #fff; cursor: pointer; margin-top: -6px; box-shadow: 0 0 10px #1DB6F2; border: 2px solid #1DB6F2; }
         input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 6px; cursor: pointer; background: rgba(3, 166, 166, 0.3); border-radius: 3px; border: 1px solid #1DB6F2; }
 
-        /* BOTONES DE MENÚ */
         button { pointer-events: auto; width: 80%; max-width: 350px; padding: 14px; font-size: 1.1rem; font-weight: 900; color: white; background: rgba(3, 44, 166, 0.6); border: 2px solid #1DB6F2; border-radius: 6px; cursor: pointer; margin-top: 5px; box-shadow: 0 0 10px #1DB6F2; transition: all 0.2s ease; text-transform: uppercase; letter-spacing: 1px; backdrop-filter: blur(4px); font-family: 'Montserrat', sans-serif; }
         button:hover { background: rgba(3, 44, 166, 0.9); box-shadow: 0 0 25px #1DB6F2, inset 0 0 10px #1DB6F2; transform: scale(1.05); }
         button:active { transform: scale(0.95); box-shadow: 0 0 5px #1DB6F2; }
@@ -92,7 +82,6 @@
 
         #start-screen button { animation: neonPulse 2s infinite; }
 
-        /* ANIMACIONES EN CASCADA PARA PAUSA */
         .pause-item { opacity: 0; }
         .animate-cascade .pause-item { animation: dropInCascade 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
         .animate-cascade h2.pause-item { animation-delay: 0.1s; }
@@ -102,15 +91,12 @@
         .animate-cascade button.pause-item:nth-of-type(2) { animation-delay: 0.5s; }
         .animate-cascade button.pause-item:nth-of-type(3) { animation-delay: 0.6s; }
 
-        /* ANIMACIÓN DE GAME OVER Y NUEVO RÉCORD (TAMAÑOS REDUCIDOS) */
         .pop-in-anim { animation: popInBounce 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
         #new-record-msg { color: #FFD700; font-family: 'Orbitron', sans-serif; margin-bottom: -10px; margin-top: 5px; font-size: 1.2rem; animation: recordPulse 1.5s infinite; letter-spacing: 1px; }
         
-        /* Ajuste de tamaño de Game Over para iPhone Pro Max */
         .game-over-title { color: #FF3F34; text-shadow: 0 0 15px #FF3F34; font-family: 'Orbitron', sans-serif; font-size: 2.2rem; margin-top: 5px; }
         .game-over-score { font-size: 3.5rem; color: #1DB6F2; text-shadow: 0 0 10px #FF3F34; font-weight: bold; line-height: 1; }
 
-        /* CONTROLES EN PANTALLA */
         #action-btn { position: absolute; bottom: 40px; left: 20px; width: 75px; height: 75px; background: rgba(29, 182, 242, 0.3); border: 3px solid #1DB6F2; border-radius: 50%; color: #1DB6F2; display: flex; justify-content: center; align-items: center; font-weight: bold; pointer-events: auto; visibility: hidden; z-index: 25; user-select: none; font-size: 0.85rem; backdrop-filter: blur(5px); box-shadow: 0 0 10px #1DB6F2; }
         #dash-btn { position: absolute; bottom: 100px; left: 20px; width: 75px; height: 75px; background: rgba(3, 166, 166, 0.3); border: 3px solid #03A6A6; border-radius: 50%; color: #03A6A6; display: flex; justify-content: center; align-items: center; font-weight: bold; pointer-events: auto; z-index: 25; user-select: none; font-size: 2rem; backdrop-filter: blur(5px); box-shadow: 0 0 10px #03A6A6; }
         .dash-cooldown { opacity: 0.3; border-color: #555 !important; color: #555 !important; }
@@ -261,7 +247,9 @@
         let pickupDebug;
 
         let bgMusic = null;
+        // *** FIX iOS: SFX se crean dentro del gesto del usuario en startGame() ***
         let sfxAgarrar, sfxDejar, sfxQuitar, sfxJiji;
+        let sfxLoaded = false;
         
         let musicVol = localStorage.getItem('ellitRushMusicVol') !== null ? parseFloat(localStorage.getItem('ellitRushMusicVol')) : 0.05;
         let sfxVol = localStorage.getItem('ellitRushSfxVol') !== null ? parseFloat(localStorage.getItem('ellitRushSfxVol')) : 0.80;
@@ -280,18 +268,26 @@
             localStorage.setItem('ellitRushSfxVol', sfxVol);
         });
 
-        // PARCHE DE AUDIO PARA iOS: Despierta el WebAudio API en cualquier toque
-        document.body.addEventListener('touchstart', function() {
-            if (gameInstance && gameInstance.sound && gameInstance.sound.context && gameInstance.sound.context.state === 'suspended') {
-                gameInstance.sound.context.resume();
+        // *** FIX iOS: Desbloquea WebAudio con un buffer silencioso en cualquier toque ***
+        function unlockAudio() {
+            if (!gameInstance || !gameInstance.sound) return;
+            const ctx = gameInstance.sound.context;
+            if (ctx && ctx.state === 'suspended') {
+                ctx.resume().then(() => {
+                    // Buffer silencioso — "despierta" el motor de audio de iOS
+                    try {
+                        const buffer = ctx.createBuffer(1, 1, 22050);
+                        const source = ctx.createBufferSource();
+                        source.buffer = buffer;
+                        source.connect(ctx.destination);
+                        source.start(0);
+                    } catch(e) {}
+                });
             }
-        }, { once: false });
-        
-        document.body.addEventListener('click', function() {
-            if (gameInstance && gameInstance.sound && gameInstance.sound.context && gameInstance.sound.context.state === 'suspended') {
-                gameInstance.sound.context.resume();
-            }
-        }, { once: false });
+        }
+        document.body.addEventListener('touchstart', unlockAudio, false);
+        document.body.addEventListener('touchend',   unlockAudio, false);
+        document.body.addEventListener('click',      unlockAudio, false);
 
         const config = {
             type: Phaser.AUTO,
@@ -299,7 +295,9 @@
             width: 450, 
             height: 800, 
             backgroundColor: '#011C26',
-            physics: { default: 'arcade', arcade: { debug: false } }, 
+            physics: { default: 'arcade', arcade: { debug: false } },
+            // *** FIX iOS: fuerza WebAudio, nunca HTML5Audio ***
+            audio: { disableWebAudio: false },
             scene: { preload: preload, create: create, update: update },
             plugins: {
                 global: [{
@@ -369,10 +367,7 @@
         }
 
         function create() {
-            if (this.cache.audio.exists('agarrar')) sfxAgarrar = this.sound.add('agarrar');
-            if (this.cache.audio.exists('dejar')) sfxDejar = this.sound.add('dejar');
-            if (this.cache.audio.exists('quitar')) sfxQuitar = this.sound.add('quitar');
-            if (this.cache.audio.exists('jiji')) sfxJiji = this.sound.add('jiji');
+            // *** FIX iOS: SFX ya NO se crean aquí — se crean en startGame() dentro del gesto ***
 
             this.physics.world.setBounds(0, 0, WORLD_W, WORLD_H);
             
@@ -704,11 +699,23 @@
 
             const startScreen = document.getElementById('start-screen');
             startScreen.classList.add('transition-out');
+
+            // *** FIX iOS: Desbloquear audio explícitamente en este gesto ***
+            unlockAudio();
+
+            // *** FIX iOS: Crear todos los SFX AQUÍ, dentro del gesto del usuario ***
+            let scene = gameInstance.scene.scenes[0];
+            if (!sfxLoaded) {
+                sfxLoaded = true;
+                if (scene.cache.audio.exists('agarrar')) sfxAgarrar = scene.sound.add('agarrar');
+                if (scene.cache.audio.exists('dejar'))   sfxDejar   = scene.sound.add('dejar');
+                if (scene.cache.audio.exists('quitar'))  sfxQuitar  = scene.sound.add('quitar');
+                if (scene.cache.audio.exists('jiji'))    sfxJiji    = scene.sound.add('jiji');
+            }
             
             if (bgMusic) bgMusic.stop(); 
             let randomTrackNumber = Phaser.Math.Between(1, 6);
             let trackKey = 'music' + randomTrackNumber;
-            let scene = gameInstance.scene.scenes[0];
             
             if (scene.cache.audio.exists(trackKey)) {
                 bgMusic = scene.sound.add(trackKey, { loop: true, volume: musicVol });
