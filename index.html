@@ -2,498 +2,283 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ELLIT RUSH: DEEP BLUE</title>
-    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/phaser3-rex-plugins/dist/rexvirtualjoystickplugin.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Power Dash - Menú Principal</title>
     <style>
-        /* ESTILOS DE INTERFAZ */
-        body { margin: 0; background: #011C26; overflow: hidden; font-family: 'Arial', sans-serif; }
-        #game-container { width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; }
+        /* =====================
+           CSS: ESTÉTICA NEÓN "DEEP BLUE"
+           ===================== */
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Montserrat:wght@700;900&display=swap');
         
-        .hud { position: absolute; top: 15px; width: 100%; display: flex; justify-content: space-around; color: white; z-index: 20; font-weight: bold; pointer-events: none; text-shadow: 0 0 5px #1DB6F2; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html, body {
+            width: 100%; height: 100%;
+            font-family: 'Montserrat', sans-serif;
+            /* AQUÍ ESTÁ LA CORRECCIÓN: La imagen va directo al body */
+            background: #011C26 url("img/Fondo de juego de Power Dash.png") no-repeat center center;
+            background-size: cover;
+            overflow: hidden;
+        }
+
+        /* Un overlay sutil para que los botones resalten sin tapar la imagen */
+        .bg-overlay {
+            position: absolute; inset: 0; z-index: 1;
+            background: linear-gradient(to bottom, rgba(1, 28, 38, 0) 30%, rgba(1, 28, 38, 0.95) 100%);
+            pointer-events: none;
+        }
+
+        /* ANIMACIONES */
+        @keyframes popUp {
+            0% { opacity: 0; transform: scale(0.95); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+        @keyframes neonPulse {
+            0% { box-shadow: 0 0 10px #1DB6F2, inset 0 0 5px #1DB6F2; }
+            50% { box-shadow: 0 0 20px #1DB6F2, inset 0 0 10px #1DB6F2; }
+            100% { box-shadow: 0 0 10px #1DB6F2, inset 0 0 5px #1DB6F2; }
+        }
+
+        /* CONTENEDOR DE BOTONES */
+        .menu {
+            position: absolute;
+            top: 65%; /* Más abajo para no tapar el logo */
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            width: 100%;
+            max-width: 280px;
+            padding: 0 20px;
+            z-index: 5;
+        }
+
+        /* BOTONES EXACTAMENTE IGUALES A LOS DEL JUEGO */
+        .menu button {
+            width: 100%;
+            padding: 16px;
+            font-size: 1.1rem;
+            font-weight: 900;
+            color: white;
+            background: rgba(3, 44, 166, 0.6); 
+            border: 2px solid #1DB6F2; 
+            border-radius: 6px; 
+            cursor: pointer;
+            box-shadow: 0 0 10px #1DB6F2; 
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            backdrop-filter: blur(4px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .menu button:hover {
+            background: rgba(3, 44, 166, 0.9);
+            box-shadow: 0 0 25px #1DB6F2, inset 0 0 10px #1DB6F2;
+            transform: scale(1.05);
+        }
+
+        .menu button:active {
+            transform: scale(0.95);
+            box-shadow: 0 0 5px #1DB6F2;
+        }
+
+        /* Botón de Jugar con animación de pulso */
+        .btn-play {
+            animation: neonPulse 2s infinite;
+        }
+
+        /* PANELES (AJUSTES, CRÉDITOS, INFO) */
+        .panel {
+            position: absolute; inset: 0; 
+            background: rgba(1, 28, 38, 0.9); 
+            backdrop-filter: blur(12px);
+            display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 20px;
+            color: white; z-index: 10; text-align: center; padding: 20px; 
+            border: 2px solid rgba(29, 182, 242, 0.3); 
+        }
         
-        .overlay { position: absolute; background: rgba(1, 46, 64, 0.95); width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 30; text-align: center; color: white; padding: 25px; box-sizing: border-box; border: 4px solid #1DB6F2; box-shadow: 0 0 30px #1DB6F2; }
+        .panel:not(.hidden) { animation: popUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
         .hidden { display: none !important; }
-        
-        button { pointer-events: auto; background: linear-gradient(180deg, #1DB6F2 0%, #032CA6 100%); border: none; padding: 15px 45px; font-weight: bold; border-radius: 5px; cursor: pointer; margin-top: 20px; font-size: 1.2rem; color: white; width: 80%; box-shadow: 0 0 15px #1DB6F2; text-transform: uppercase; }
-        button:active { transform: scale(0.95); }
 
-        #action-btn { position: absolute; bottom: 40px; left: 20px; width: 75px; height: 75px; background: rgba(29, 182, 242, 0.3); border: 3px solid #1DB6F2; border-radius: 50%; color: #1DB6F2; display: flex; justify-content: center; align-items: center; font-weight: bold; pointer-events: auto; visibility: hidden; z-index: 25; user-select: none; font-size: 0.85rem; backdrop-filter: blur(5px); box-shadow: 0 0 10px #1DB6F2; }
-        
-        #dash-btn { position: absolute; bottom: 130px; left: 20px; width: 75px; height: 75px; background: rgba(3, 166, 166, 0.3); border: 3px solid #03A6A6; border-radius: 50%; color: #03A6A6; display: flex; justify-content: center; align-items: center; font-weight: bold; pointer-events: auto; z-index: 25; user-select: none; font-size: 1.5rem; backdrop-filter: blur(5px); box-shadow: 0 0 10px #03A6A6; }
-        
-        .dash-cooldown { opacity: 0.3; border-color: #555 !important; color: #555 !important; }
-        
-        #error-log { position: absolute; top: 0; left: 0; color: #ff3333; background: rgba(0,0,0,0.9); z-index: 9999; padding: 10px; display: none; text-align: left; }
+        .panel h2 { 
+            font-family: 'Orbitron', sans-serif; 
+            font-size: 2.5rem; 
+            color: #1DB6F2; 
+            margin-bottom: 10px; 
+            text-shadow: 0 0 15px #1DB6F2; 
+        }
 
-        table { margin-top: 15px; border-collapse: collapse; width: 80%; max-width: 300px; color: white; border: 1px solid #1DB6F2; box-shadow: 0 0 10px #1DB6F2; }
-        th, td { padding: 10px; border: 1px solid #1DB6F2; text-align: center; font-size: 1.2rem; }
-        th { font-weight: bold; color: #1DB6F2; background: rgba(0,0,0,0.5); }
+        .panel p { font-size: 1.1rem; line-height: 1.5; max-width: 500px; }
+
+        /* BOTONES DENTRO DE LOS PANELES */
+        .panel button {
+            margin-top: 25px; padding: 14px 40px; font-size: 1rem; font-weight: bold;
+            border-radius: 6px; border: 2px solid #03A6A6; cursor: pointer;
+            background: rgba(3, 166, 166, 0.2); color: white;
+            transition: all 0.2s; text-transform: uppercase;
+        }
+        .panel button:hover { background: rgba(3, 166, 166, 0.5); box-shadow: 0 0 15px #03A6A6; }
+        .panel button:active { transform: scale(0.95); }
+
+        /* SCROLL DE CRÉDITOS */
+        .credits-container { 
+            width: 100%; max-width: 400px; max-height: 50vh; overflow-y: auto; 
+            padding: 20px; background: rgba(3, 166, 166, 0.1); 
+            border-left: 4px solid #03A6A6; border-radius: 4px; text-align: left;
+        }
+        .credits-container::-webkit-scrollbar { width: 4px; }
+        .credits-container::-webkit-scrollbar-thumb { background: #03A6A6; border-radius: 2px; }
+        
+        .role { font-size: 0.8rem; color: #03A6A6; letter-spacing: 2px; margin-bottom: 2px; text-transform: uppercase; font-weight: 700;}
+        .name { font-size: 1.4rem; font-weight: 900; margin-bottom: 25px; color: white; }
+
+        /* SLIDERS ESTILO NEÓN */
+        .slider-container { display: flex; flex-direction: column; align-items: flex-start; margin-bottom: 20px; width: 100%; max-width: 300px; }
+        .slider-container label { color: #1DB6F2; font-family: 'Orbitron', sans-serif; margin-bottom: 8px; font-size: 1rem; letter-spacing: 1px; }
+        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
+        input[type=range]:focus { outline: none; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 18px; width: 18px; background: #fff; cursor: pointer; margin-top: -6px; border-radius: 50%; box-shadow: 0 0 10px #1DB6F2; border: 2px solid #1DB6F2; }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 6px; cursor: pointer; background: rgba(3, 166, 166, 0.3); border: 1px solid #1DB6F2; border-radius: 3px;}
+
+        /* RESPONSIVE */
+        @media (max-width: 768px) {
+            .menu { top: 70%; max-width: 250px; }
+            .panel h2 { font-size: 2rem; }
+        }
     </style>
 </head>
+
 <body>
+    <div class="bg-overlay"></div>
 
-    <div id="error-log"></div>
+    <div class="menu">
+        <button class="btn-play" id="comenzarJuego">▶ JUGAR</button>
+        <button onclick="abrirPanel('tiendaPanel')">🛒 TIENDA</button>
+        <button onclick="abrirPanel('ajustesPanel')">⚙ AJUSTES</button>
+        <button onclick="abrirPanel('creditosPanel')">ℹ CRÉDITOS</button>
+    </div>
 
-    <div id="game-container">
-        <div class="hud">
-            <div id="timer-display" style="font-size: 1.3rem;">10.0s</div>
-            <div id="score-display" style="font-size: 1.3rem;">PESAS: 0</div>
+    <div id="ajustesPanel" class="panel hidden">
+        <h2>AJUSTES</h2>
+        
+        <div class="slider-container">
+            <label>MÚSICA FONDO</label>
+            <input type="range" id="musicVolume" min="0" max="100">
         </div>
 
-        <div id="start-screen" class="overlay">
-            <h1 style="color:#1DB6F2; font-size: 3rem; margin-bottom: 0; text-shadow: 0 0 10px #1DB6F2;">ELLIT RUSH</h1>
-            <p style="color: #03A6A6; letter-spacing: 2px;">V3.0 DETAILED GYM</p>
-            <div id="tutorial-box" style="text-align: left; background: rgba(0,0,0,0.3); padding: 20px; border-radius: 10px; border: 1px solid #1DB6F2; margin: 20px 0; color: white;"></div>
-            <button onclick="startGame()">INICIAR RUTINA</button>
+        <div class="slider-container">
+            <label>EFECTOS (SFX)</label>
+            <input type="range" id="sfxVolume" min="0" max="100">
         </div>
 
-        <div id="dash-btn">⚡</div>
-        <div id="action-btn">TOMAR</div>
+        <button onclick="cerrarPanel('ajustesPanel')">VOLVER</button>
+    </div>
 
-        <div id="end-screen" class="overlay hidden">
-            <h1 style="color: #FF3F34; text-shadow: 0 0 10px #FF3F34;">TIEMPO FUERA</h1>
-            <div style="font-size: 4rem; color: #1DB6F2; text-shadow: 0 0 10px #FF3F34;" id="final-score">0</div>
-            <p style="margin-top:0">MANCUERNAS RESCATADAS</p>
-            <h3 style="margin-bottom: 5px; color: #03A6A6;">MEJORES PUNTUACIONES</h3>
-            <table id="leaderboard"></table>
-            <button onclick="location.reload()">REINTENTAR</button>
+    <div id="creditosPanel" class="panel hidden">
+        <h2>CRÉDITOS</h2>
+        
+        <div class="credits-container">
+            <p class="role">Un Proyecto De</p>
+            <p class="name">ELLIT</p>
+
+            <p class="role">Dirección General (CompuX) y Diseño</p>
+            <p class="name">Jesús Francisco Virrueta Espinoza</p>
+
+            <p class="role">Diseño de Interfaz (UI/UX)</p>
+            <p class="name">Brayan Castañeda</p>
+            
+            <p class="role">Tecnología de Motor</p>
+            <p class="name" style="font-size: 1.2rem;">Phaser 3 Framework</p>
         </div>
+
+        <button onclick="cerrarPanel('creditosPanel')">VOLVER</button>
+    </div>
+
+    <div id="tiendaPanel" class="panel hidden">
+        <h2>TIENDA</h2>
+        <p style="color: #a0d8f2; max-width: 350px;">Las mancuernas personalizadas y mejoras estarán disponibles pronto.</p>
+        <br>
+        <p style="color: #FFD700; font-family: 'Orbitron', sans-serif; font-size: 1.5rem; letter-spacing: 3px; text-shadow: 0 0 10px #FFD700;">PRÓXIMAMENTE</p>
+        <button onclick="cerrarPanel('tiendaPanel')" style="margin-top: 30px;">VOLVER</button>
     </div>
 
     <script>
-        window.onerror = function(msg, url, line) {
-            const log = document.getElementById('error-log');
-            log.style.display = 'block';
-            log.innerHTML += `ERROR: ${msg} (Línea: ${line})<br>`;
-            return false;
-        };
-
-        const ZONA_ENTREGA = { x: 400, y: 70, ancho: 220, alto: 135 };
-        const mostrarColisiones = false; 
-        const mostrarAreaRecogida = true;
-        const RADIO_RECOGIDA = 40;        
-
-        const colisionesMapa = [
-            { id: 1,  ancho: 30, alto: 30, x: 50, y: 100 },
-            { id: 2,  ancho: 100, alto: 100, x: 140, y: 170 },
-            { id: 3,  ancho: 170, alto: 120, x: 400, y: 230 },
-            { id: 4,  ancho: 160, alto: 100, x: 650, y: 170 },
-            { id: 5,  ancho: 100, alto: 130, x: 227, y: 400 },
-            { id: 6,  ancho: 100, alto: 200, x: 30, y: 400 },
-            { id: 7,  ancho: 100, alto: 180, x: 575, y: 390 },
-            { id: 8,  ancho: 30, alto: 60, x: 750, y: 480 },
-            { id: 9,  ancho: 80, alto: 200, x: 127, y: 650 },
-            { id: 10, ancho: 180, alto: 215, x: 403, y: 615 },
-            { id: 11, ancho: 50, alto: 800, x: 795, y: 400 },
-            { id: 12, ancho: 110, alto: 200, x: 690, y: 654 },
-            { id: 13, ancho: 50, alto: 100, x: 50, y: 650 }, 
-            { id: 14, ancho: 800, alto: 50, x: 400, y: 794 },
-            { id: 15, ancho: 50, alto: 800, x: 8, y: 400 },
-            { id: 16, ancho: 800, alto: 200, x: 400, y: -19 },
-            { id: 17, ancho: 100, alto: 100, x: 70, y: 720 }
-        ];
-
-        function saveAndGetHighScores(newScore) {
-            let scores = JSON.parse(localStorage.getItem('ellitRushTopScores')) || [];
-            scores.push(newScore);
-            scores.sort((a, b) => b - a);
-            scores = scores.slice(0, 5);
-            localStorage.setItem('ellitRushTopScores', JSON.stringify(scores));
-            return scores;
+        // =====================
+        // MANEJO DE PANELES
+        // =====================
+        function abrirPanel(id) {
+            if (clickSound) { clickSound.currentTime = 0; clickSound.play().catch(e=>console.log(e)); }
+            document.getElementById(id).classList.remove("hidden");
         }
 
-        function displayLeaderboard(scores) {
-            let html = "<tr><th>#</th><th>PUNTOS</th></tr>";
-            scores.forEach((s, index) => { html += `<tr><td>${index + 1}</td><td><b>${s}</b></td></tr>`; });
-            document.getElementById('leaderboard').innerHTML = html;
+        function cerrarPanel(id) {
+            if (clickSound) { clickSound.currentTime = 0; clickSound.play().catch(e=>console.log(e)); }
+            document.getElementById(id).classList.add("hidden");
         }
 
-        function setTutorialText() {
-            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-            const tutorialDiv = document.getElementById('tutorial-box');
-            if (isMobile) {
-                tutorialDiv.innerHTML = "<b>📱 CÓMO JUGAR (MÓVIL):</b><br><br>• Usa el <b>Joystick derecho</b> para moverte.<br>• Toca ⚡ para usar tu <b>Dash</b>.<br>• <b>Pasa cerca de una pesa</b> para tomarla automáticamente.<br>• Lleva la pesa a la zona azul superior.<br>• ¡Esquiva a los demás miembros!";
-            } else {
-                tutorialDiv.innerHTML = "<b>💻 CÓMO JUGAR (PC):</b><br><br>• Usa las <b>Flechas</b> para moverte.<br>• Presiona <b>ESPACIO</b> para el Dash.<br>• Acércate a una pesa y presiona <b>'E'</b>.<br>• Lleva la pesa a la zona azul superior.<br>• ¡Esquiva a los demás miembros!";
-            }
-        }
-        setTutorialText();
+        // =====================
+        // 🎵 SISTEMA DE AUDIO (LOCAL STORAGE)
+        // =====================
+        const music = new Audio("sounds/Musica_Fondo.mp3");
+        music.loop = true;
+        const clickSound = new Audio("sounds/Click.mp3");
 
-        const WORLD_W = 800;
-        const WORLD_H = 800;
-        const C_CYAN = 0x1DB6F2;
-        const C_GREEN = 0x03A6A6;
-        const C_RED = 0xFF3F34;
-        const C_GOLD = 0xFFD700; 
+        let musicVol = localStorage.getItem('ellitRushMusicVol') !== null ? parseFloat(localStorage.getItem('ellitRushMusicVol')) : 0.05;
+        let sfxVol = localStorage.getItem('ellitRushSfxVol') !== null ? parseFloat(localStorage.getItem('ellitRushSfxVol')) : 0.80;
 
-        let player, activeWeight, activeWeightGlow, machines, people, rackZone, pointerArrow, backgroundMap;
-        let isHolding = null, isPlaying = false, timeLeft = 10.0, score = 0;
-        let cursors, keyE, keySpace;
-        let canDash = true, isDashing = false;
-        let joyStick = null; // <- NUEVA VARIABLE PARA EL PLUGIN
-        let gameInstance = null;
-        let pickupDebug;
+        music.volume = musicVol;
+        clickSound.volume = sfxVol;
 
-        const config = {
-            type: Phaser.AUTO,
-            parent: 'game-container',
-            width: 450, 
-            height: 800, 
-            backgroundColor: '#011C26',
-            physics: { default: 'arcade', arcade: { debug: false } }, 
-            scene: { preload: preload, create: create, update: update },
-            // INYECTAMOS EL PLUGIN AQUÍ
-            plugins: {
-                global: [{
-                    key: 'rexVirtualJoystick',
-                    plugin: rexvirtualjoystickplugin,
-                    start: true
-                }]
-            }
-        };
+        const musicSlider = document.getElementById("musicVolume");
+        const sfxSlider = document.getElementById("sfxVolume");
 
-        try { gameInstance = new Phaser.Game(config); } catch(e) { console.error(e); }
+        musicSlider.value = musicVol * 100;
+        sfxSlider.value = sfxVol * 100;
 
-        function preload() {
-            this.load.image('gym_bg', 'fondo1.jpg'); 
-            this.load.image('mancuerna', 'mancuerna1.png'); 
+        document.addEventListener("click", () => {
+            if (music.paused) music.play().catch(e => console.log("Esperando interacción para audio"));
+        }, { once: true });
 
-            const g = this.make.graphics({ x: 0, y: 0, add: false });
-            
-            g.clear(); g.fillStyle(C_CYAN); g.fillCircle(15, 15, 15);
-            g.fillStyle(0xffffff, 0.4); g.fillRect(7, 10, 16, 10);
-            g.lineStyle(2, 0xffffff); g.strokeCircle(15, 15, 15);
-            g.generateTexture('player', 32, 32);
-            
-            g.clear(); g.fillStyle(0x0a0a0a); g.fillCircle(15, 15, 15);
-            g.fillStyle(C_RED); g.fillCircle(10, 10, 3); g.fillCircle(20, 10, 3); 
-            g.lineStyle(3, C_RED, 0.7); g.strokeCircle(15, 15, 15);
-            g.generateTexture('person', 32, 32);
-
-            g.clear(); 
-            g.fillStyle(0xFFFF00, 1); 
-            g.lineStyle(2, 0xFF9900); 
-            g.beginPath(); 
-            g.moveTo(20, 10); 
-            g.lineTo(0, 0);   
-            g.lineTo(0, 20);  
-            g.closePath(); 
-            g.fillPath();
-            g.strokePath();
-            g.generateTexture('arrow', 20, 20);
-
-            g.clear(); 
-            for (let i = 40; i > 0; i--) {
-                g.fillStyle(C_GOLD, 0.05); 
-                g.fillCircle(40, 40, i);
-            }
-            g.generateTexture('aura', 80, 80);
-        }
-
-        function create() {
-            this.physics.world.setBounds(0, 0, WORLD_W, WORLD_H);
-            
-            backgroundMap = this.add.image(WORLD_W/2, WORLD_H/2, 'gym_bg');
-            backgroundMap.setDisplaySize(WORLD_W, WORLD_H);
-            backgroundMap.setDepth(-100);
-
-            rackZone = this.add.rectangle(ZONA_ENTREGA.x, ZONA_ENTREGA.y, ZONA_ENTREGA.ancho, ZONA_ENTREGA.alto, C_GREEN, 0.2).setStrokeStyle(4, C_GREEN).setDepth(-10);
-            this.physics.add.existing(rackZone, true);
-            
-            let rackText = this.add.text(ZONA_ENTREGA.x, ZONA_ENTREGA.y, "ZONA DE ENTREGA", { fontSize: '24px', color: '#03A6A6', fontStyle: 'bold', textShadow: '0 0 5px #03A6A6' }).setOrigin(0.5).setDepth(-9);
-            
-            if (!mostrarColisiones) {
-                rackZone.setVisible(false);
-                rackText.setVisible(false);
-            }
-
-            machines = this.physics.add.staticGroup();
-            
-            machines.add(this.add.rectangle(WORLD_W/2, 0, WORLD_W, 20).setVisible(false));
-            machines.add(this.add.rectangle(WORLD_W/2, WORLD_H, WORLD_W, 20).setVisible(false));
-            machines.add(this.add.rectangle(0, WORLD_H/2, 20, WORLD_H).setVisible(false));
-            machines.add(this.add.rectangle(WORLD_W, WORLD_H/2, 20, WORLD_H).setVisible(false));
-
-            colisionesMapa.forEach(col => {
-                let rect = this.add.rectangle(col.x, col.y, col.ancho, col.alto, C_RED, 0.4);
-                rect.setStrokeStyle(3, 0xFF0000); 
-                rect.setDepth(5); 
-                rect.setVisible(mostrarColisiones); 
-                
-                machines.add(rect);
-
-                if(mostrarColisiones) {
-                    this.add.text(col.x, col.y, col.id, { 
-                        fontSize: '28px', color: '#ffffff', fontStyle: 'bold', textShadow: '0 0 5px #000' 
-                    }).setOrigin(0.5).setDepth(6);
-                }
-            });
-
-            player = this.physics.add.sprite(WORLD_W/2, WORLD_H/2, 'player').setCollideWorldBounds(true).setCircle(14).setDepth(10);
-            player.body.setBounce(0);
-            player.setPushable(false); 
-            
-            this.cameras.main.setBounds(0, 0, WORLD_W, WORLD_H);
-            this.cameras.main.startFollow(player, true, 0.1, 0.1);
-
-            pickupDebug = this.add.graphics().setDepth(100);
-            pointerArrow = this.add.sprite(0, 0, 'arrow').setDepth(90).setVisible(false);
-
-            activeWeightGlow = this.add.sprite(-100, -100, 'aura').setDepth(4);
-            activeWeightGlow.setBlendMode(Phaser.BlendModes.ADD); 
-            activeWeightGlow.setDisplaySize(60, 60); 
-
-            activeWeight = this.physics.add.sprite(-100, -100, 'mancuerna').setDepth(5);
-            activeWeight.setDisplaySize(40, 40); 
-            
-            spawnWeight();
-
-            this.tweens.add({
-                targets: [activeWeight, activeWeightGlow],
-                scale: '*=1.25', duration: 500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
-            });
-
-            this.tweens.add({
-                targets: activeWeightGlow,
-                alpha: { from: 1, to: 0.4 }, duration: 500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
-            });
-
-            people = this.physics.add.group();
-            for(let i=0; i<4; i++) {
-                let pos = getValidSpawn(true);
-                let p = people.create(pos.x, pos.y, 'person');
-                p.setCollideWorldBounds(true).setCircle(14).setDepth(9);
-                p.body.setBounce(0); 
-                p.body.setMass(1); 
-            }
-
-            this.physics.add.collider(player, machines);
-            this.physics.add.collider(people, machines);
-            
-            this.physics.add.collider(people, people, (p1, p2) => {
-                if (p1.body.velocity.length() < 10 && p2.body.velocity.length() < 10) {
-                     p1.setVelocity(Phaser.Math.Between(-50, 50), Phaser.Math.Between(-50, 50));
-                }
-            });
-
-            this.physics.add.collider(player, people, (pl, pe) => {
-                if (isDashing) return;
-
-                if (isHolding) {
-                    isHolding = null;
-                    timeLeft = Math.max(0, timeLeft - 2.5);
-                    this.cameras.main.shake(200, 0.02);
-                    spawnWeight();
-                }
-            });
-
-            cursors = this.input.keyboard.createCursorKeys();
-            keyE = this.input.keyboard.addKey('E');
-            keySpace = this.input.keyboard.addKey('SPACE');
-
-            setupJoystick(this);
-
-            document.getElementById('action-btn').addEventListener('touchstart', (e) => { e.preventDefault(); tryPickup(); });
-            document.getElementById('dash-btn').addEventListener('touchstart', (e) => { e.preventDefault(); triggerDash(); });
-            keyE.on('down', tryPickup);
-            keySpace.on('down', triggerDash);
-            
-            this.scene.pause();
-        }
-
-        function deliverWeight(scene) {
-            score++; timeLeft += 4; 
-            scene.cameras.main.flash(200, 0, 255, 0); 
-            isHolding = null; 
-            spawnWeight();
-        }
-
-        function isPointInRectangles(x, y) {
-            for (let i = 0; i < colisionesMapa.length; i++) {
-                let rect = colisionesMapa[i];
-                let left = rect.x - (rect.ancho / 2);
-                let right = rect.x + (rect.ancho / 2);
-                let top = rect.y - (rect.alto / 2);
-                let bottom = rect.y + (rect.alto / 2);
-
-                if (x > left - 20 && x < right + 20 && y > top - 20 && y < bottom + 20) {
-                    return true; 
-                }
-            }
-            return false; 
-        }
-
-        function getValidSpawn(checkPlayer = false) {
-            let x, y, valid, loops = 0;
-            do {
-                valid = true;
-                x = Phaser.Math.Between(50, WORLD_W-50); 
-                y = Phaser.Math.Between(150, WORLD_H-50);
-                
-                if (y < 180 && x > 150 && x < 650) valid = false;
-                if (checkPlayer && player && Phaser.Math.Distance.Between(x, y, player.x, player.y) < 200) valid = false;
-                if (isPointInRectangles(x, y)) valid = false;
-
-                loops++;
-            } while (!valid && loops < 100); 
-            return { x, y };
-        }
-
-        function spawnWeight() {
-            let pos = getValidSpawn(true);
-            activeWeight.setPosition(pos.x, pos.y);
-            activeWeightGlow.setPosition(pos.x, pos.y);
-        }
-
-        // --- NUEVA FUNCIÓN DEL JOYSTICK REXUI ---
-        function setupJoystick(scene) {
-            const isMobile = !scene.sys.game.device.os.desktop;
-            if (isMobile) {
-                joyStick = scene.plugins.get('rexVirtualJoystick').add(scene, {
-                    x: 350,
-                    y: 680,
-                    radius: 55,
-                    base: scene.add.circle(0, 0, 55, 0xffffff, 0.1).setDepth(1000).setStrokeStyle(2, C_CYAN).setScrollFactor(0),
-                    thumb: scene.add.circle(0, 0, 28, C_CYAN, 0.5).setDepth(1001).setScrollFactor(0),
-                    dir: '8dir', // Se mueve en 8 direcciones
-                    forceMin: 10
+        document.querySelectorAll("button").forEach(btn => {
+            if(btn.id !== "comenzarJuego") {
+                btn.addEventListener("click", () => {
+                    clickSound.currentTime = 0;
+                    clickSound.play().catch(e => console.log("Audio de click bloqueado"));
                 });
             }
-        }
+        });
 
-        function tryPickup() {
-            if (!isPlaying) return;
-            if (!isHolding && Phaser.Math.Distance.Between(player.x, player.y, activeWeight.x, activeWeight.y) < RADIO_RECOGIDA) {
-                isHolding = activeWeight;
-            }
-        }
+        musicSlider.addEventListener("input", e => {
+            let val = e.target.value / 100;
+            music.volume = val;
+            localStorage.setItem('ellitRushMusicVol', val);
+        });
 
-        function triggerDash() {
-            if (!isPlaying || !canDash) return;
-            canDash = false; isDashing = true;
-            player.setTint(C_RED); 
-            document.getElementById('dash-btn').classList.add('dash-cooldown');
+        sfxSlider.addEventListener("input", e => {
+            let val = e.target.value / 100;
+            clickSound.volume = val;
+            localStorage.setItem('ellitRushSfxVol', val);
+        });
+
+        // =====================
+        // INICIAR JUEGO
+        // =====================
+        document.getElementById("comenzarJuego").addEventListener("click", () => {
+            clickSound.currentTime = 0; clickSound.play().catch(e=>console.log(e));
             
-            setTimeout(() => { isDashing = false; player.clearTint(); }, 250); 
+            document.body.style.opacity = 0;
+            document.body.style.transition = "opacity 0.5s ease";
+            
             setTimeout(() => {
-                canDash = true;
-                if(player.active) { gameInstance.scene.scenes[0].tweens.add({ targets: player, alpha: 0.3, duration: 80, yoyo: true, repeat: 2 }); }
-                document.getElementById('dash-btn').classList.remove('dash-cooldown');
-            }, 3000); 
-        }
-
-        function update(time, delta) {
-            if (!isPlaying) return;
-            timeLeft -= delta / 1000;
-            
-            if (isDashing) {
-                let trace = this.add.image(player.x, player.y, 'player');
-                trace.setTint(C_GREEN); trace.setAlpha(0.4).setDepth(9);
-                this.tweens.add({ targets: trace, alpha: 0, duration: 250, onComplete: () => trace.destroy() });
-            }
-
-            if (isHolding) {
-                if (this.physics.overlap(player, rackZone)) { deliverWeight(this); } 
-                else {
-                    activeWeight.setPosition(player.x, player.y - 15);
-                    activeWeightGlow.setPosition(player.x, player.y - 15); 
-                }
-            } else {
-                activeWeightGlow.setPosition(activeWeight.x, activeWeight.y);
-            }
-
-            let target = isHolding ? {x: ZONA_ENTREGA.x, y: ZONA_ENTREGA.y} : {x: activeWeight.x, y: activeWeight.y};
-            let distToTarget = Phaser.Math.Distance.Between(player.x, player.y, target.x, target.y);
-            
-            if (distToTarget > 200) { 
-                pointerArrow.setVisible(true);
-                pointerArrow.setPosition(player.x, player.y);
-                pointerArrow.setRotation(Phaser.Math.Angle.Between(player.x, player.y, target.x, target.y));
-                Phaser.Math.RotateAroundDistance(pointerArrow, player.x, player.y, pointerArrow.rotation, 65);
-            } else {
-                pointerArrow.setVisible(false);
-            }
-
-            let enemySpeed = Math.min(130 + (score * 4), 260); 
-            let pSpeed = isDashing ? 650 : 250; 
-
-            let vx = 0, vy = 0;
-            if (cursors.left.isDown) vx = -pSpeed; else if (cursors.right.isDown) vx = pSpeed;
-            if (cursors.up.isDown) vy = -pSpeed; else if (cursors.down.isDown) vy = pSpeed;
-
-            // --- LÓGICA ACTUALIZADA PARA LEER EL NUEVO JOYSTICK ---
-            if (joyStick && joyStick.force > 0) {
-                // Normalizamos la fuerza para que el jugador no vaya más rápido si estira mucho el dedo
-                let force = Math.min(joyStick.force / 55, 1); 
-                vx = Math.cos(joyStick.rotation) * pSpeed * force;
-                vy = Math.sin(joyStick.rotation) * pSpeed * force;
-            }
-            player.setVelocity(vx, vy);
-
-            people.children.iterate(p => {
-                let d = Phaser.Math.Distance.Between(p.x, p.y, player.x, player.y);
-                
-                if (d < 34) { 
-                    p.setVelocity(0, 0); 
-                } 
-                else if (d < 300) { 
-                    this.physics.moveToObject(p, player, isDashing ? 60 : enemySpeed); 
-                } 
-                else { 
-                    p.setVelocity(0, 0); 
-                }
-            });
-
-            document.getElementById('timer-display').innerText = Math.max(0, timeLeft).toFixed(1) + "s";
-            document.getElementById('score-display').innerText = `PESAS: ${score}`;
-            
-            if (timeLeft <= 4) document.getElementById('timer-display').style.color = '#FF3F34'; 
-            else document.getElementById('timer-display').style.color = '#ffffff';
-
-            const btn = document.getElementById('action-btn');
-            let isNear = Phaser.Math.Distance.Between(player.x, player.y, activeWeight.x, activeWeight.y) < RADIO_RECOGIDA;
-            const isMobile = !this.sys.game.device.os.desktop;
-
-            pickupDebug.clear();
-            if (mostrarAreaRecogida && !isHolding) {
-                pickupDebug.lineStyle(2, 0x00FF00, 0.8);
-                pickupDebug.strokeCircle(activeWeight.x, activeWeight.y, RADIO_RECOGIDA);
-            }
-
-            if (isMobile) {
-                btn.style.display = 'none'; 
-                if (isNear && !isHolding) {
-                    tryPickup(); 
-                }
-            } else {
-                btn.style.visibility = (isNear && !isHolding) ? 'visible' : 'hidden';
-            }
-
-            if (timeLeft <= 0) gameOver();
-        }
-
-        function gameOver() {
-            isPlaying = false;
-            gameInstance.scene.scenes[0].scene.pause();
-            document.getElementById('final-score').innerText = score;
-            let topScores = saveAndGetHighScores(score);
-            displayLeaderboard(topScores);
-            document.getElementById('end-screen').classList.remove('hidden');
-        }
-
-        function startGame() {
-            document.getElementById('start-screen').classList.add('hidden');
-            isPlaying = true; score = 0; timeLeft = 10.0;
-            player.setPosition(WORLD_W/2, WORLD_H/2);
-            spawnWeight();
-            isHolding = null;
-            canDash = true; isDashing = false;
-            document.getElementById('dash-btn').classList.remove('dash-cooldown');
-            
-            gameInstance.scene.scenes[0].scene.resume();
-        }
+                // REDIRIGE AL ARCHIVO DEL JUEGO
+                window.location.href = "prueba.html"; 
+            }, 500);
+        });
     </script>
 </body>
 </html>
