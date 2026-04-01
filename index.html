@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>ELLIT RUSH: DEEP BLUE</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/phaser3-rex-plugins/dist/rexvirtualjoystickplugin.min.js"></script>
     <style>
         /* ESTILOS DE INTERFAZ */
         body { margin: 0; background: #011C26; overflow: hidden; font-family: 'Arial', sans-serif; }
@@ -20,7 +21,7 @@
 
         #action-btn { position: absolute; bottom: 40px; left: 20px; width: 75px; height: 75px; background: rgba(29, 182, 242, 0.3); border: 3px solid #1DB6F2; border-radius: 50%; color: #1DB6F2; display: flex; justify-content: center; align-items: center; font-weight: bold; pointer-events: auto; visibility: hidden; z-index: 25; user-select: none; font-size: 0.85rem; backdrop-filter: blur(5px); box-shadow: 0 0 10px #1DB6F2; }
         
-        #dash-btn { position: absolute; bottom: 130px; left: 30px; width: 55px; height: 55px; background: rgba(3, 166, 166, 0.3); border: 3px solid #03A6A6; border-radius: 50%; color: #03A6A6; display: flex; justify-content: center; align-items: center; font-weight: bold; pointer-events: auto; z-index: 25; user-select: none; font-size: 1.5rem; backdrop-filter: blur(5px); box-shadow: 0 0 10px #03A6A6; }
+        #dash-btn { position: absolute; bottom: 130px; left: 30px; width: 75px; height: 75px; background: rgba(3, 166, 166, 0.3); border: 3px solid #03A6A6; border-radius: 50%; color: #03A6A6; display: flex; justify-content: center; align-items: center; font-weight: bold; pointer-events: auto; z-index: 25; user-select: none; font-size: 1.5rem; backdrop-filter: blur(5px); box-shadow: 0 0 10px #03A6A6; }
         
         .dash-cooldown { opacity: 0.3; border-color: #555 !important; color: #555 !important; }
         
@@ -71,8 +72,8 @@
 
         const ZONA_ENTREGA = { x: 400, y: 70, ancho: 220, alto: 135 };
         const mostrarColisiones = false; 
-        const mostrarAreaRecogida = false; // <-- Ponlo en false para ocultar el círculo verde
-        const RADIO_RECOGIDA = 40;        // <-- Cambia esto para ajustar a qué distancia se recoge la pesa
+        const mostrarAreaRecogida = true;
+        const RADIO_RECOGIDA = 40;        
 
         const colisionesMapa = [
             { id: 1,  ancho: 30, alto: 30, x: 50, y: 100 },
@@ -131,9 +132,9 @@
         let isHolding = null, isPlaying = false, timeLeft = 10.0, score = 0;
         let cursors, keyE, keySpace;
         let canDash = true, isDashing = false;
-        let joystickBase, joystickThumb, joystickActive = false, joystickVector = { x: 0, y: 0 };
+        let joyStick = null; // <- NUEVA VARIABLE PARA EL PLUGIN
         let gameInstance = null;
-        let pickupDebug; // <-- Variable para dibujar el área de recolección
+        let pickupDebug;
 
         const config = {
             type: Phaser.AUTO,
@@ -142,7 +143,15 @@
             height: 800, 
             backgroundColor: '#011C26',
             physics: { default: 'arcade', arcade: { debug: false } }, 
-            scene: { preload: preload, create: create, update: update }
+            scene: { preload: preload, create: create, update: update },
+            // INYECTAMOS EL PLUGIN AQUÍ
+            plugins: {
+                global: [{
+                    key: 'rexVirtualJoystick',
+                    plugin: rexvirtualjoystickplugin,
+                    start: true
+                }]
+            }
         };
 
         try { gameInstance = new Phaser.Game(config); } catch(e) { console.error(e); }
@@ -163,7 +172,6 @@
             g.lineStyle(3, C_RED, 0.7); g.strokeCircle(15, 15, 15);
             g.generateTexture('person', 32, 32);
 
-            // Flecha corregida
             g.clear(); 
             g.fillStyle(0xFFFF00, 1); 
             g.lineStyle(2, 0xFF9900); 
@@ -230,9 +238,7 @@
             this.cameras.main.setBounds(0, 0, WORLD_W, WORLD_H);
             this.cameras.main.startFollow(player, true, 0.1, 0.1);
 
-            // Inicializar el gráfico para la hitbox de recolección
             pickupDebug = this.add.graphics().setDepth(100);
-
             pointerArrow = this.add.sprite(0, 0, 'arrow').setDepth(90).setVisible(false);
 
             activeWeightGlow = this.add.sprite(-100, -100, 'aura').setDepth(4);
@@ -341,36 +347,19 @@
             activeWeightGlow.setPosition(pos.x, pos.y);
         }
 
+        // --- NUEVA FUNCIÓN DEL JOYSTICK REXUI ---
         function setupJoystick(scene) {
             const isMobile = !scene.sys.game.device.os.desktop;
             if (isMobile) {
-                joystickBase = scene.add.circle(350, 680, 55, 0xffffff, 0.1).setDepth(1000).setScrollFactor(0).setStrokeStyle(2, C_CYAN);
-                joystickThumb = scene.add.circle(350, 680, 28, C_CYAN, 0.5).setDepth(1001).setScrollFactor(0);
-                
-                scene.input.on('pointerdown', (pointer) => {
-                    if (pointer.position.x > config.width/2 && pointer.position.y > config.height/2) { 
-                        joystickActive = true;
-                        joystickBase.setPosition(pointer.position.x, pointer.position.y).setVisible(true);
-                        joystickThumb.setPosition(pointer.position.x, pointer.position.y).setVisible(true);
-                    }
+                joyStick = scene.plugins.get('rexVirtualJoystick').add(scene, {
+                    x: 350,
+                    y: 680,
+                    radius: 55,
+                    base: scene.add.circle(0, 0, 55, 0xffffff, 0.1).setDepth(1000).setStrokeStyle(2, C_CYAN).setScrollFactor(0),
+                    thumb: scene.add.circle(0, 0, 28, C_CYAN, 0.5).setDepth(1001).setScrollFactor(0),
+                    dir: '8dir', // Se mueve en 8 direcciones
+                    forceMin: 10
                 });
-                scene.input.on('pointermove', (pointer) => {
-                    if (joystickActive) {
-                        let dist = Phaser.Math.Distance.Between(pointer.position.x, pointer.position.y, joystickBase.x, joystickBase.y);
-                        let angle = Phaser.Math.Angle.Between(joystickBase.x, joystickBase.y, pointer.position.x, pointer.position.y);
-                        dist = Math.min(dist, 55);
-                        joystickThumb.setPosition(joystickBase.x + Math.cos(angle)*dist, joystickBase.y + Math.sin(angle)*dist);
-                        joystickVector = { x: Math.cos(angle) * (dist/55), y: Math.sin(angle) * (dist/55) };
-                    }
-                });
-                scene.input.on('pointerup', () => {
-                    joystickActive = false;
-                    joystickVector = { x: 0, y: 0 };
-                    joystickBase.setVisible(false);
-                    joystickThumb.setVisible(false);
-                });
-                joystickBase.setVisible(false);
-                joystickThumb.setVisible(false);
             }
         }
 
@@ -434,9 +423,12 @@
             if (cursors.left.isDown) vx = -pSpeed; else if (cursors.right.isDown) vx = pSpeed;
             if (cursors.up.isDown) vy = -pSpeed; else if (cursors.down.isDown) vy = pSpeed;
 
-            if (joystickActive) {
-                vx = joystickVector.x * pSpeed;
-                vy = joystickVector.y * pSpeed;
+            // --- LÓGICA ACTUALIZADA PARA LEER EL NUEVO JOYSTICK ---
+            if (joyStick && joyStick.force > 0) {
+                // Normalizamos la fuerza para que el jugador no vaya más rápido si estira mucho el dedo
+                let force = Math.min(joyStick.force / 55, 1); 
+                vx = Math.cos(joyStick.rotation) * pSpeed * force;
+                vy = Math.sin(joyStick.rotation) * pSpeed * force;
             }
             player.setVelocity(vx, vy);
 
@@ -464,7 +456,6 @@
             let isNear = Phaser.Math.Distance.Between(player.x, player.y, activeWeight.x, activeWeight.y) < RADIO_RECOGIDA;
             const isMobile = !this.sys.game.device.os.desktop;
 
-            // DIBUJAR LA "HITBOX" DE RECOLECCIÓN (CÍRCULO VERDE)
             pickupDebug.clear();
             if (mostrarAreaRecogida && !isHolding) {
                 pickupDebug.lineStyle(2, 0x00FF00, 0.8);
