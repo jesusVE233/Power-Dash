@@ -71,6 +71,8 @@
 
         const ZONA_ENTREGA = { x: 400, y: 70, ancho: 220, alto: 135 };
         const mostrarColisiones = false; 
+        const mostrarAreaRecogida = false; // <-- Ponlo en false para ocultar el círculo verde
+        const RADIO_RECOGIDA = 40;        // <-- Cambia esto para ajustar a qué distancia se recoge la pesa
 
         const colisionesMapa = [
             { id: 1,  ancho: 30, alto: 30, x: 50, y: 100 },
@@ -111,7 +113,7 @@
             const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
             const tutorialDiv = document.getElementById('tutorial-box');
             if (isMobile) {
-                tutorialDiv.innerHTML = "<b>📱 CÓMO JUGAR (MÓVIL):</b><br><br>• Usa el <b>Joystick derecho</b> para moverte.<br>• Toca ⚡ para usar tu <b>Dash</b>.<br>• Acércate a una pesa y toca <b>TOMAR</b>.<br>• Lleva la pesa a la zona azul superior.<br>• ¡Esquiva a los demás miembros!";
+                tutorialDiv.innerHTML = "<b>📱 CÓMO JUGAR (MÓVIL):</b><br><br>• Usa el <b>Joystick derecho</b> para moverte.<br>• Toca ⚡ para usar tu <b>Dash</b>.<br>• <b>Pasa cerca de una pesa</b> para tomarla automáticamente.<br>• Lleva la pesa a la zona azul superior.<br>• ¡Esquiva a los demás miembros!";
             } else {
                 tutorialDiv.innerHTML = "<b>💻 CÓMO JUGAR (PC):</b><br><br>• Usa las <b>Flechas</b> para moverte.<br>• Presiona <b>ESPACIO</b> para el Dash.<br>• Acércate a una pesa y presiona <b>'E'</b>.<br>• Lleva la pesa a la zona azul superior.<br>• ¡Esquiva a los demás miembros!";
             }
@@ -131,6 +133,7 @@
         let canDash = true, isDashing = false;
         let joystickBase, joystickThumb, joystickActive = false, joystickVector = { x: 0, y: 0 };
         let gameInstance = null;
+        let pickupDebug; // <-- Variable para dibujar el área de recolección
 
         const config = {
             type: Phaser.AUTO,
@@ -160,6 +163,7 @@
             g.lineStyle(3, C_RED, 0.7); g.strokeCircle(15, 15, 15);
             g.generateTexture('person', 32, 32);
 
+            // Flecha corregida
             g.clear(); 
             g.fillStyle(0xFFFF00, 1); 
             g.lineStyle(2, 0xFF9900); 
@@ -225,6 +229,9 @@
             
             this.cameras.main.setBounds(0, 0, WORLD_W, WORLD_H);
             this.cameras.main.startFollow(player, true, 0.1, 0.1);
+
+            // Inicializar el gráfico para la hitbox de recolección
+            pickupDebug = this.add.graphics().setDepth(100);
 
             pointerArrow = this.add.sprite(0, 0, 'arrow').setDepth(90).setVisible(false);
 
@@ -369,7 +376,7 @@
 
         function tryPickup() {
             if (!isPlaying) return;
-            if (!isHolding && Phaser.Math.Distance.Between(player.x, player.y, activeWeight.x, activeWeight.y) < 110) {
+            if (!isHolding && Phaser.Math.Distance.Between(player.x, player.y, activeWeight.x, activeWeight.y) < RADIO_RECOGIDA) {
                 isHolding = activeWeight;
             }
         }
@@ -454,8 +461,24 @@
             else document.getElementById('timer-display').style.color = '#ffffff';
 
             const btn = document.getElementById('action-btn');
-            let isNear = Phaser.Math.Distance.Between(player.x, player.y, activeWeight.x, activeWeight.y) < 110;
-            btn.style.visibility = (isNear && !isHolding) ? 'visible' : 'hidden';
+            let isNear = Phaser.Math.Distance.Between(player.x, player.y, activeWeight.x, activeWeight.y) < RADIO_RECOGIDA;
+            const isMobile = !this.sys.game.device.os.desktop;
+
+            // DIBUJAR LA "HITBOX" DE RECOLECCIÓN (CÍRCULO VERDE)
+            pickupDebug.clear();
+            if (mostrarAreaRecogida && !isHolding) {
+                pickupDebug.lineStyle(2, 0x00FF00, 0.8);
+                pickupDebug.strokeCircle(activeWeight.x, activeWeight.y, RADIO_RECOGIDA);
+            }
+
+            if (isMobile) {
+                btn.style.display = 'none'; 
+                if (isNear && !isHolding) {
+                    tryPickup(); 
+                }
+            } else {
+                btn.style.visibility = (isNear && !isHolding) ? 'visible' : 'hidden';
+            }
 
             if (timeLeft <= 0) gameOver();
         }
