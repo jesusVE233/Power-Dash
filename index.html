@@ -15,10 +15,24 @@
         html, body {
             width: 100%; height: 100%;
             font-family: 'Montserrat', sans-serif;
-            /* AQUÍ ESTÁ LA CORRECCIÓN: La imagen va directo al body */
-            background: #011C26 url("img/Fondo de juego de Power Dash.png") no-repeat center center;
+            background-color: #011C26;
+            background-repeat: no-repeat;
+            /* Usamos 'center top' para asegurar que el logo incrustado no se corte por arriba */
+            background-position: center top; 
             background-size: cover;
             overflow: hidden;
+        }
+
+        /* FONDO POR DEFECTO: Teléfonos (Vertical) */
+        body {
+            background-image: url("img/vertical.png");
+        }
+
+        /* FONDO PARA ESCRITORIO: Computadoras o Tablets acostadas (Horizontal) */
+        @media (min-width: 768px) and (orientation: landscape) {
+            body {
+                background-image: url("img/horizontal1.png");
+            }
         }
 
         /* Un overlay sutil para que los botones resalten sin tapar la imagen */
